@@ -50,7 +50,7 @@ export default async function HomePage() {
     <div className="space-y-14 sm:space-y-16">
       <section className="surface-card rounded-[2rem] px-5 py-5 sm:px-8 sm:py-7 lg:px-10 lg:py-8">
         <div className="flex justify-end">
-          <div className="chip">校园协作平台</div>
+          <div className="chip">邻派 Linpai</div>
         </div>
 
         <div className="mt-3 max-w-4xl">
@@ -60,7 +60,7 @@ export default async function HomePage() {
             让合作更快开始
           </h1>
           <p className="mt-5 max-w-3xl text-base leading-8 text-[var(--muted)] sm:text-[1.06rem]">
-            无论你是想加入队伍，还是想发起招募，这里都能帮你更高效地连接。
+            无论你是想加入队伍，还是想发起招募，邻派都能帮你更高效地连接。
           </p>
         </div>
 
@@ -98,7 +98,7 @@ export default async function HomePage() {
           <PageHeading
             eyebrow="最近机会"
             title="看看现在有什么机会在开放"
-            description="如果你想参与项目、比赛或者找一个能快速开始的合作入口，可以先从这里筛。"
+            description="如果你想参与项目、比赛，或者找一个能快速开始的合作入口，可以先从这里筛。"
           />
           <Link href="/opportunities" className="ui-link hidden text-sm font-semibold sm:block">
             查看全部机会
@@ -139,7 +139,7 @@ export default async function HomePage() {
         <div className="space-y-5">
           <PageHeading
             eyebrow="案例"
-            title="看看平台里的真实协作结果"
+            title="看看邻派里的真实协作结果"
             description="通过案例快速判断这个平台适不适合你，也能知道别人是怎么配队和落地的。"
           />
           {cases.map((item) => (
