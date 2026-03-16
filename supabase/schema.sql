@@ -3,18 +3,18 @@ create extension if not exists "pgcrypto";
 create table if not exists public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   name text not null,
-  school text not null,
-  major text not null,
-  grade text not null,
-  bio text not null,
+  school text,
+  major text,
+  grade text,
+  bio text,
   avatar_path text,
   portfolio_cover_path text,
   portfolio_external_url text,
-  time_commitment text not null,
+  time_commitment text,
   skill_tags text[] not null default '{}',
   interested_directions text[] not null default '{}',
   achievements text[] not null default '{}',
-  contact_hint text default '登录后可发起联系。',
+  contact_hint text default '登录后可以发起进一步联系。',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -39,14 +39,14 @@ create table if not exists public.opportunities (
   summary text not null,
   school_scope text not null,
   deadline date not null,
-  creator_id uuid not null references public.profiles (id) on delete cascade,
+  creator_id uuid not null references auth.users (id) on delete cascade,
   creator_name text,
   cover_path text,
   feishu_url text,
   status text not null default '开放报名',
   weekly_hours text not null,
   progress text not null,
-  trial_task text not null,
+  trial_task text,
   skill_tags text[] not null default '{}',
   deliverables text[] not null default '{}',
   applicant_count integer not null default 0,
@@ -67,7 +67,7 @@ create table if not exists public.opportunity_roles (
 create table if not exists public.applications (
   id uuid primary key default gen_random_uuid(),
   opportunity_id uuid not null references public.opportunities (id) on delete cascade,
-  applicant_id uuid not null references public.profiles (id) on delete cascade,
+  applicant_id uuid not null references auth.users (id) on delete cascade,
   opportunity_title text,
   note text not null,
   status text not null default '待查看',
@@ -106,50 +106,70 @@ alter table public.applications enable row level security;
 alter table public.mentors enable row level security;
 alter table public.cases enable row level security;
 
+drop policy if exists "public can read profiles" on public.profiles;
 create policy "public can read profiles"
 on public.profiles for select using (true);
 
+drop policy if exists "users manage own profile" on public.profiles;
 create policy "users manage own profile"
-on public.profiles for all using (auth.uid() = id) with check (auth.uid() = id);
+on public.profiles
+for all
+using (auth.uid() = id)
+with check (auth.uid() = id);
 
+drop policy if exists "public can read opportunities" on public.opportunities;
 create policy "public can read opportunities"
 on public.opportunities for select using (true);
 
+drop policy if exists "creator manages own opportunities" on public.opportunities;
 create policy "creator manages own opportunities"
-on public.opportunities for all using (auth.uid() = creator_id) with check (auth.uid() = creator_id);
+on public.opportunities
+for all
+using (auth.uid() = creator_id)
+with check (auth.uid() = creator_id);
 
+drop policy if exists "public can read opportunity roles" on public.opportunity_roles;
 create policy "public can read opportunity roles"
 on public.opportunity_roles for select using (true);
 
+drop policy if exists "creator manages own opportunity roles" on public.opportunity_roles;
 create policy "creator manages own opportunity roles"
-on public.opportunity_roles for all
+on public.opportunity_roles
+for all
 using (
   exists (
-    select 1 from public.opportunities
+    select 1
+    from public.opportunities
     where public.opportunities.id = public.opportunity_roles.opportunity_id
       and public.opportunities.creator_id = auth.uid()
   )
 )
 with check (
   exists (
-    select 1 from public.opportunities
+    select 1
+    from public.opportunities
     where public.opportunities.id = public.opportunity_roles.opportunity_id
       and public.opportunities.creator_id = auth.uid()
   )
 );
 
+drop policy if exists "users can read own applications" on public.applications;
 create policy "users can read own applications"
 on public.applications for select using (auth.uid() = applicant_id);
 
+drop policy if exists "users can insert own applications" on public.applications;
 create policy "users can insert own applications"
 on public.applications for insert with check (auth.uid() = applicant_id);
 
+drop policy if exists "users can update own applications" on public.applications;
 create policy "users can update own applications"
 on public.applications for update using (auth.uid() = applicant_id);
 
+drop policy if exists "public can read mentors" on public.mentors;
 create policy "public can read mentors"
 on public.mentors for select using (true);
 
+drop policy if exists "public can read cases" on public.cases;
 create policy "public can read cases"
 on public.cases for select using (true);
 
@@ -159,3 +179,48 @@ values
   ('portfolio-covers', 'portfolio-covers', true),
   ('opportunity-covers', 'opportunity-covers', true)
 on conflict (id) do nothing;
+
+drop policy if exists "public can view avatars" on storage.objects;
+create policy "public can view avatars"
+on storage.objects for select
+using (bucket_id = 'avatars');
+
+drop policy if exists "public can view portfolio covers" on storage.objects;
+create policy "public can view portfolio covers"
+on storage.objects for select
+using (bucket_id = 'portfolio-covers');
+
+drop policy if exists "public can view opportunity covers" on storage.objects;
+create policy "public can view opportunity covers"
+on storage.objects for select
+using (bucket_id = 'opportunity-covers');
+
+drop policy if exists "authenticated can upload avatars" on storage.objects;
+create policy "authenticated can upload avatars"
+on storage.objects for insert
+with check (bucket_id = 'avatars' and auth.role() = 'authenticated');
+
+drop policy if exists "authenticated can update avatars" on storage.objects;
+create policy "authenticated can update avatars"
+on storage.objects for update
+using (bucket_id = 'avatars' and auth.role() = 'authenticated');
+
+drop policy if exists "authenticated can upload portfolio covers" on storage.objects;
+create policy "authenticated can upload portfolio covers"
+on storage.objects for insert
+with check (bucket_id = 'portfolio-covers' and auth.role() = 'authenticated');
+
+drop policy if exists "authenticated can update portfolio covers" on storage.objects;
+create policy "authenticated can update portfolio covers"
+on storage.objects for update
+using (bucket_id = 'portfolio-covers' and auth.role() = 'authenticated');
+
+drop policy if exists "authenticated can upload opportunity covers" on storage.objects;
+create policy "authenticated can upload opportunity covers"
+on storage.objects for insert
+with check (bucket_id = 'opportunity-covers' and auth.role() = 'authenticated');
+
+drop policy if exists "authenticated can update opportunity covers" on storage.objects;
+create policy "authenticated can update opportunity covers"
+on storage.objects for update
+using (bucket_id = 'opportunity-covers' and auth.role() = 'authenticated');

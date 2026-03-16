@@ -29,7 +29,7 @@ function offlineState(message: string): ActionState {
 
 async function requireConfiguredSupabase() {
   if (!hasSupabaseEnv()) {
-    throw new Error("当前尚未配置 Supabase 环境变量，请先补齐 .env.local");
+    throw new Error("当前尚未配置 Supabase 环境变量，请先补齐 .env.local。");
   }
 
   return createServerSupabaseClient();
@@ -46,7 +46,7 @@ export async function logoutAction() {
 
 export async function loginAction(_: ActionState, formData: FormData): Promise<ActionState> {
   if (!hasSupabaseEnv()) {
-    return offlineState("当前是离线演示模式，请先配置 Supabase 环境变量后再测试登录");
+    return offlineState("当前是离线演示模式，请先配置 Supabase 环境变量后再测试登录。");
   }
 
   const email = String(formData.get("email") ?? "").trim();
@@ -55,9 +55,9 @@ export async function loginAction(_: ActionState, formData: FormData): Promise<A
   if (!email || !email.includes("@")) {
     return {
       status: "error",
-      message: "请输入有效邮箱地址",
+      message: "请输入有效的邮箱地址。",
       fieldErrors: {
-        email: ["请输入有效邮箱地址"],
+        email: ["请输入有效的邮箱地址。"],
       },
     };
   }
@@ -75,11 +75,14 @@ export async function loginAction(_: ActionState, formData: FormData): Promise<A
       return { status: "error", message: error.message };
     }
 
-    return { status: "success", message: "登录链接已发送到你的邮箱，请在同一设备完成验证" };
+    return {
+      status: "success",
+      message: "登录链接已发送到你的邮箱，请在同一设备完成验证。",
+    };
   } catch (error) {
     return {
       status: "error",
-      message: error instanceof Error ? error.message : "发送登录链接失败",
+      message: error instanceof Error ? error.message : "发送登录链接失败。",
     };
   }
 }
@@ -103,7 +106,7 @@ export async function saveProfileAction(_: ActionState, formData: FormData): Pro
   if (!parsed.success) {
     return {
       status: "error",
-      message: "请先修正资料表单中的问题",
+      message: "请先修正资料表单中的问题。",
       fieldErrors: toFieldErrors(parsed.error),
     };
   }
@@ -119,7 +122,7 @@ export async function saveProfileAction(_: ActionState, formData: FormData): Pro
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return offlineState("请先登录后再保存人才卡");
+      return offlineState("请先登录后再保存个人资料。");
     }
 
     const avatarPath = await uploadImage({
@@ -152,7 +155,7 @@ export async function saveProfileAction(_: ActionState, formData: FormData): Pro
       avatar_path: avatarPath,
       portfolio_cover_path: portfolioCoverPath,
       achievements: [],
-      contact_hint: "登录后可查看完整资料并进一步联系",
+      contact_hint: "登录后可查看完整资料并进一步联系。",
       updated_at: new Date().toISOString(),
     });
 
@@ -163,11 +166,11 @@ export async function saveProfileAction(_: ActionState, formData: FormData): Pro
     revalidatePath("/dashboard");
     revalidatePath("/talent");
 
-    return { status: "success", message: "人才卡已保存" };
+    return { status: "success", message: "个人资料已保存。" };
   } catch (error) {
     return {
       status: "error",
-      message: error instanceof Error ? error.message : "保存人才卡失败",
+      message: error instanceof Error ? error.message : "保存个人资料失败。",
     };
   }
 }
@@ -210,7 +213,7 @@ export async function publishOpportunityAction(
   if (!parsed.success) {
     return {
       status: "error",
-      message: "发布表单还有必填项未完成",
+      message: "发布表单还有未完成或未填写正确的内容。",
       fieldErrors: toFieldErrors(parsed.error),
     };
   }
@@ -226,7 +229,7 @@ export async function publishOpportunityAction(
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return offlineState("请先登录后再发布机会");
+      return offlineState("请先登录后再发布机会。");
     }
 
     const opportunityId = crypto.randomUUID();
@@ -252,7 +255,7 @@ export async function publishOpportunityAction(
       status: "开放报名",
       weekly_hours: parsed.data.weeklyHours,
       progress: parsed.data.progress,
-      trial_task: parsed.data.trialTask,
+      trial_task: parsed.data.trialTask || null,
       skill_tags: parsed.data.skillTags,
       deliverables: parsed.data.deliverables,
       applicant_count: 0,
@@ -279,11 +282,11 @@ export async function publishOpportunityAction(
     revalidatePath("/opportunities");
     revalidatePath("/dashboard");
 
-    return { status: "success", message: "机会已发布" };
+    return { status: "success", message: "机会已发布。" };
   } catch (error) {
     return {
       status: "error",
-      message: error instanceof Error ? error.message : "发布失败",
+      message: error instanceof Error ? error.message : "发布失败。",
     };
   }
 }
@@ -302,13 +305,13 @@ export async function applyOpportunityAction(
   if (!parsed.success) {
     return {
       status: "error",
-      message: "报名信息还不完整",
+      message: "报名信息还有未完成或未填写正确的内容。",
       fieldErrors: toFieldErrors(parsed.error),
     };
   }
 
   if (!hasSupabaseEnv()) {
-    return offlineState("报名内容已校验通过。配置 Supabase 后即可写入报名记录。");
+    return offlineState("报名信息校验已通过。配置 Supabase 后即可写入真实记录。");
   }
 
   try {
@@ -318,7 +321,7 @@ export async function applyOpportunityAction(
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return offlineState("请先登录后再报名");
+      return offlineState("请先登录后再报名。");
     }
 
     const { data: opportunity } = await supabase
@@ -342,11 +345,11 @@ export async function applyOpportunityAction(
 
     revalidatePath("/dashboard");
 
-    return { status: "success", message: "报名已提交，请等待项目方查看" };
+    return { status: "success", message: "报名已提交，请等待项目方查看。" };
   } catch (error) {
     return {
       status: "error",
-      message: error instanceof Error ? error.message : "报名失败",
+      message: error instanceof Error ? error.message : "报名失败。",
     };
   }
 }
@@ -367,18 +370,18 @@ export async function saveMentorAction(_: ActionState, formData: FormData): Prom
   if (!parsed.success) {
     return {
       status: "error",
-      message: "导师表单还有未完成项",
+      message: "导师表单还有未完成的内容。",
       fieldErrors: toFieldErrors(parsed.error),
     };
   }
 
   const currentUser = await getCurrentUser();
   if (!currentUser || !isAdminEmail(currentUser.email)) {
-    return offlineState("只有管理员白名单邮箱可以录入导师");
+    return offlineState("只有管理员白名单邮箱可以录入导师资料。");
   }
 
   if (!hasServiceRoleEnv()) {
-    return offlineState("请先配置 SUPABASE_SERVICE_ROLE_KEY 后再进行后台录入");
+    return offlineState("请先配置 SUPABASE_SERVICE_ROLE_KEY 后再进行后台录入。");
   }
 
   try {
@@ -400,11 +403,11 @@ export async function saveMentorAction(_: ActionState, formData: FormData): Prom
 
     revalidatePath("/mentors");
     revalidatePath("/dashboard/admin");
-    return { status: "success", message: "导师资料已录入" };
+    return { status: "success", message: "导师资料已录入。" };
   } catch (error) {
     return {
       status: "error",
-      message: error instanceof Error ? error.message : "导师录入失败",
+      message: error instanceof Error ? error.message : "导师录入失败。",
     };
   }
 }
@@ -422,18 +425,18 @@ export async function saveCaseAction(_: ActionState, formData: FormData): Promis
   if (!parsed.success) {
     return {
       status: "error",
-      message: "案例表单还有未完成项",
+      message: "案例表单还有未完成的内容。",
       fieldErrors: toFieldErrors(parsed.error),
     };
   }
 
   const currentUser = await getCurrentUser();
   if (!currentUser || !isAdminEmail(currentUser.email)) {
-    return offlineState("只有管理员白名单邮箱可以录入案例");
+    return offlineState("只有管理员白名单邮箱可以录入案例。");
   }
 
   if (!hasServiceRoleEnv()) {
-    return offlineState("请先配置 SUPABASE_SERVICE_ROLE_KEY 后再进行后台录入");
+    return offlineState("请先配置 SUPABASE_SERVICE_ROLE_KEY 后再进行后台录入。");
   }
 
   try {
@@ -452,11 +455,11 @@ export async function saveCaseAction(_: ActionState, formData: FormData): Promis
 
     revalidatePath("/cases");
     revalidatePath("/dashboard/admin");
-    return { status: "success", message: "案例已录入" };
+    return { status: "success", message: "案例已录入。" };
   } catch (error) {
     return {
       status: "error",
-      message: error instanceof Error ? error.message : "案例录入失败",
+      message: error instanceof Error ? error.message : "案例录入失败。",
     };
   }
 }

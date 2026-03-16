@@ -3,12 +3,12 @@
 import { useMemo, useState, useTransition } from "react";
 
 import { saveProfileAction } from "@/app/actions";
-import { schools, skillOptions, timeCommitmentOptions } from "@/constants";
-import { scrollToFirstError } from "@/lib/form";
 import { FormFeedback } from "@/components/ui/form-feedback";
 import { FieldError } from "@/components/ui/field-error";
 import { FieldLabel } from "@/components/ui/field-label";
 import { ImageUploadInput } from "@/components/ui/image-upload-input";
+import { schools, skillOptions, timeCommitmentOptions } from "@/constants";
+import { scrollToFirstError } from "@/lib/form";
 import { initialActionState, type ActionState } from "@/types/action";
 import type { TalentDetail } from "@/types/profile";
 import { profileSchema } from "@/validators/profile";
@@ -84,7 +84,7 @@ export function ProfileForm({ profile }: { profile?: TalentDetail | null }) {
         }
       });
       setFieldErrors(nextErrors);
-      setServerState({ status: "error", message: "还有信息没填完整，请按提示修改" });
+      setServerState({ status: "error", message: "还有信息没填完整，请按提示修改。" });
       scrollToFirstError(nextErrors);
       return;
     }
@@ -169,7 +169,7 @@ export function ProfileForm({ profile }: { profile?: TalentDetail | null }) {
           value={values.bio}
           onChange={(event) => setValue("bio", event.target.value)}
           className="field-base"
-          placeholder="简单介绍你现在在做什么、想参与什么"
+          placeholder="简单介绍你现在在做什么、想参与什么。"
         />
       </label>
 
@@ -261,7 +261,7 @@ export function ProfileForm({ profile }: { profile?: TalentDetail | null }) {
         <ImageUploadInput
           name="avatar"
           label="头像（可选）"
-          helper="建议压缩到 256x256 左右，100KB 内"
+          helper="建议压缩到 256x256 左右，100KB 内。"
           previewUrl={profile?.avatarPath}
           maxWidthOrHeight={512}
           maxSizeMB={0.12}
@@ -269,7 +269,7 @@ export function ProfileForm({ profile }: { profile?: TalentDetail | null }) {
         <ImageUploadInput
           name="portfolioCover"
           label="作品封面（可选）"
-          helper="长边建议 1280px，200-300KB 内"
+          helper="长边建议 1280px，100-300KB 内。"
           previewUrl={profile?.portfolioCoverPath}
         />
       </div>
@@ -280,7 +280,7 @@ export function ProfileForm({ profile }: { profile?: TalentDetail | null }) {
         disabled={isPending}
         className="rounded-full bg-[var(--primary)] px-5 py-3 font-semibold text-white transition hover:bg-[var(--primary-strong)] disabled:cursor-not-allowed disabled:opacity-70"
       >
-        {isPending ? "保存中..." : "保存人才卡"}
+        {isPending ? "保存中..." : "保存个人资料"}
       </button>
     </form>
   );

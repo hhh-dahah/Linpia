@@ -1,9 +1,4 @@
-export const opportunityTypes = [
-  "比赛组队",
-  "项目招募",
-  "导师机会",
-  "短期协作",
-] as const;
+export const opportunityTypes = ["比赛组队", "项目招募", "导师机会", "短期协作"] as const;
 
 export const opportunityStatuses = ["开放报名", "进行中", "已截止"] as const;
 

@@ -1,4 +1,10 @@
-import { mockCases, mockDashboardApplications, mockMentors, mockOpportunities, mockTalents } from "@/mock/seed";
+import {
+  mockCases,
+  mockDashboardApplications,
+  mockMentors,
+  mockOpportunities,
+  mockTalents,
+} from "@/mock/seed";
 import type { DashboardApplication } from "@/types/application";
 import type { CaseCard } from "@/types/case";
 import type { MentorCard } from "@/types/mentor";
@@ -97,7 +103,7 @@ function normalizeTalent(record: Record<string, unknown>): TalentDetail {
     portfolioCoverPath: (record.portfolio_cover_path as string | null) ?? null,
     portfolioExternalUrl: (record.portfolio_external_url as string | null) ?? null,
     achievements: Array.isArray(record.achievements) ? (record.achievements as string[]) : [],
-    contactHint: String(record.contact_hint ?? "登录后可发起联系。"),
+    contactHint: String(record.contact_hint ?? "登录后可以发起进一步联系。"),
   };
 }
 

@@ -3,10 +3,10 @@
 import { useState, useTransition } from "react";
 
 import { loginAction } from "@/app/actions";
-import { scrollToFirstError } from "@/lib/form";
 import { FormFeedback } from "@/components/ui/form-feedback";
 import { FieldError } from "@/components/ui/field-error";
 import { FieldLabel } from "@/components/ui/field-label";
+import { scrollToFirstError } from "@/lib/form";
 import { initialActionState, type ActionState } from "@/types/action";
 
 export function LoginForm({ nextPath }: { nextPath: string }) {
@@ -20,9 +20,9 @@ export function LoginForm({ nextPath }: { nextPath: string }) {
 
     const nextErrors: Record<string, string> = {};
     if (!email.trim() || !email.includes("@")) {
-      nextErrors.email = "请输入有效邮箱地址";
+      nextErrors.email = "请输入有效的邮箱地址。";
       setFieldErrors(nextErrors);
-      setServerState({ status: "error", message: "请先填写正确的邮箱地址" });
+      setServerState({ status: "error", message: "请先填写正确的邮箱地址。" });
       scrollToFirstError(nextErrors);
       return;
     }

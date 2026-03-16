@@ -3,10 +3,10 @@
 import { useState, useTransition } from "react";
 
 import { applyOpportunityAction } from "@/app/actions";
-import { scrollToFirstError } from "@/lib/form";
 import { FormFeedback } from "@/components/ui/form-feedback";
 import { FieldError } from "@/components/ui/field-error";
 import { FieldLabel } from "@/components/ui/field-label";
+import { scrollToFirstError } from "@/lib/form";
 import { initialActionState, type ActionState } from "@/types/action";
 import { applicationSchema } from "@/validators/application";
 
@@ -39,7 +39,7 @@ export function ApplicationForm({ opportunityId }: { opportunityId: string }) {
         }
       });
       setFieldErrors(nextErrors);
-      setServerState({ status: "error", message: "报名信息还不完整，请按提示补充" });
+      setServerState({ status: "error", message: "报名信息还不完整，请按提示补充。" });
       scrollToFirstError(nextErrors);
       return;
     }
@@ -74,7 +74,7 @@ export function ApplicationForm({ opportunityId }: { opportunityId: string }) {
           rows={4}
           value={values.note}
           onChange={(event) => setValues((current) => ({ ...current, note: event.target.value }))}
-          placeholder="简单介绍你的经历、可投入时间，以及为什么适合这个机会"
+          placeholder="简单介绍你的经历、可投入时间，以及为什么适合这个机会。"
           className="field-base"
         />
         <FieldError message={fieldErrors.note} />

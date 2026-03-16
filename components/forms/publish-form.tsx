@@ -3,12 +3,12 @@
 import { useMemo, useState, useTransition } from "react";
 
 import { publishOpportunityAction } from "@/app/actions";
-import { opportunityTypes, schools, skillOptions } from "@/constants";
-import { scrollToFirstError } from "@/lib/form";
 import { FormFeedback } from "@/components/ui/form-feedback";
 import { FieldError } from "@/components/ui/field-error";
 import { FieldLabel } from "@/components/ui/field-label";
 import { ImageUploadInput } from "@/components/ui/image-upload-input";
+import { opportunityTypes, schools, skillOptions } from "@/constants";
+import { scrollToFirstError } from "@/lib/form";
 import { initialActionState, type ActionState } from "@/types/action";
 import { opportunitySchema } from "@/validators/opportunity";
 
@@ -162,7 +162,7 @@ export function PublishForm() {
         }
       });
       setFieldErrors(nextErrors);
-      setServerState({ status: "error", message: "还有必填项没完成，请按提示补充" });
+      setServerState({ status: "error", message: "还有必填项没完成，请按提示补充。" });
       scrollToFirstError(nextErrors);
       return;
     }
@@ -258,7 +258,7 @@ export function PublishForm() {
           value={formValues.summary}
           onChange={(event) => setValue("summary", event.target.value)}
           className="field-base"
-          placeholder="用 2-4 句话说清楚项目是什么、现在做到哪一步、缺什么人"
+          placeholder="用 2-4 句话说明项目是什么、目前做到哪一步、需要什么人。"
         />
         <FieldError message={fieldErrors.summary} />
       </label>
@@ -298,7 +298,7 @@ export function PublishForm() {
             value={formValues.progress}
             onChange={(event) => setValue("progress", event.target.value)}
             className="field-base"
-            placeholder="例如：已有 demo、已有选题、已经做完初版验证"
+            placeholder="例如：已有 demo、已有选题、已经做完初版验证。"
           />
           <FieldError message={fieldErrors.progress} />
         </label>
@@ -475,7 +475,7 @@ export function PublishForm() {
       <ImageUploadInput
         name="cover"
         label="机会封面（可选）"
-        helper="建议 200KB 左右，用于列表卡片展示"
+        helper="建议 200KB 左右，用于列表卡片展示。"
       />
 
       <FormFeedback state={serverState} />
