@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Linpai Icon Preview</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f5f7fb;
+        --card: #ffffff;
+        --line: rgba(17, 40, 79, 0.1);
+        --text: #11284f;
+        --muted: #667799;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+        background: radial-gradient(circle at top left, #eef4ff, transparent 30%), var(--bg);
+        color: var(--text);
+      }
+      .wrap {
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 48px 24px 64px;
+      }
+      h1 {
+        margin: 0 0 10px;
+        font-size: 40px;
+        line-height: 1.05;
+      }
+      p {
+        margin: 0 0 32px;
+        color: var(--muted);
+        font-size: 16px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 18px;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 28px;
+        padding: 18px;
+        box-shadow: 0 18px 48px rgba(17, 40, 79, 0.08);
+      }
+      .card img {
+        width: 100%;
+        display: block;
+        border-radius: 24px;
+        background: #f3f6fb;
+      }
+      .meta {
+        margin-top: 14px;
+      }
+      .meta strong {
+        display: block;
+        font-size: 16px;
+      }
+      .meta span {
+        display: block;
+        margin-top: 6px;
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.5;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>邻派 Linpai 图标候选</h1>
+      <p>先看整体气质，再选方向。我建议你先在 100% 和缩小到浏览器标签尺寸时都看一遍。</p>
+      <div class="grid">
+        <div class="card">
+          <img src="./linpai-option-1.svg" alt="Option 1" />
+          <div class="meta">
+            <strong>方案 1: 字母派</strong>
+            <span>偏品牌字母感，适合作为 App 图标和站点角标。</span>
+          </div>
+        </div>
+        <div class="card">
+          <img src="./linpai-option-2.svg" alt="Option 2" />
+          <div class="meta">
+            <strong>方案 2: 连接派</strong>
+            <span>三点连接，强调“机会、人、导师”的协作关系。</span>
+          </div>
+        </div>
+        <div class="card">
+          <img src="./linpai-option-3.svg" alt="Option 3" />
+          <div class="meta">
+            <strong>方案 3: 沟通派</strong>
+            <span>偏平台交流感，适合强调匹配和对话。</span>
+          </div>
+        </div>
+        <div class="card">
+          <img src="./linpai-option-4.svg" alt="Option 4" />
+          <div class="meta">
+            <strong>方案 4: 邻里派</strong>
+            <span>更贴“邻派”名字，带邻里、校园、连接的感觉。</span>
+          </div>
+        </div>
+        <div class="card">
+          <img src="./linpai-option-5.svg" alt="Option 5" />
+          <div class="meta">
+            <strong>方案 5: 徽章派</strong>
+            <span>更像成熟产品标识，适合偏稳重的品牌气质。</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+  </html>

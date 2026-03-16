@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 import { logoutAction } from "@/app/actions";
@@ -12,12 +13,18 @@ export async function SiteHeader() {
       <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 sm:px-6 lg:px-8">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <Link href="/" className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-[1.1rem] bg-[linear-gradient(135deg,_#4a8bff,_#245bdb)] text-base font-bold text-white shadow-[0_10px_22px_rgba(51,112,255,0.24)] sm:h-12 sm:w-12 sm:text-lg">
-              MC
+            <div className="overflow-hidden rounded-[1.1rem] shadow-[0_10px_22px_rgba(51,112,255,0.24)]">
+              <Image
+                src="/branding/linpai-option-1.svg"
+                alt="邻派 Linpai"
+                width={48}
+                height={48}
+                className="h-11 w-11 sm:h-12 sm:w-12"
+              />
             </div>
             <div>
               <div className="font-display text-base font-bold tracking-tight text-[var(--foreground)] sm:text-lg">
-                Match Campus
+                邻派 Linpai
               </div>
               <p className="text-xs text-[var(--muted)] sm:text-sm">机会、人才、导师协作的校园连接平台</p>
             </div>

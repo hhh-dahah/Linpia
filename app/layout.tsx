@@ -20,8 +20,8 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "Match Campus",
-  description: "校园里找机会、发招募、展示技能、连接导师的协作平台。",
+  title: "邻派 Linpai",
+  description: "校园里的机会、招募、技能展示与导师连接平台。",
 };
 
 export default function RootLayout({
