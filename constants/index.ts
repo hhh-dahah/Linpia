@@ -9,7 +9,13 @@ export const siteNavigation = [
   { href: "/publish", label: "发布机会" },
 ] as const;
 
-export const schools = ["兰州交通大学", "兰州大学", "兰州理工大学", "西北师范大学", "兰州财经大学"] as const;
+export const schools = [
+  "兰州交通大学",
+  "兰州大学",
+  "兰州理工大学",
+  "西北师范大学",
+  "兰州财经大学",
+] as const;
 
 export const skillOptions = [
   "前端开发",
