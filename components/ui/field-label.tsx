@@ -18,7 +18,7 @@ export function FieldLabel({ children, required = false, className }: FieldLabel
             : "bg-[rgba(17,40,79,0.06)] text-[var(--muted)]",
         )}
       >
-        {required ? "必填" : "可选"}
+        {required ? "必填" : "选填"}
       </span>
     </span>
   );

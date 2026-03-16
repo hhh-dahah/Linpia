@@ -8,4 +8,9 @@ export type MentorCard = {
   avatarPath?: string | null;
   contactMode: string;
   isOpen: boolean;
+  school?: string;
+  college?: string;
+  lab?: string;
+  supportMethod?: string;
+  applicationNotes?: string;
 };

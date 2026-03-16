@@ -74,7 +74,7 @@ export function ApplicationForm({ opportunityId }: { opportunityId: string }) {
           rows={4}
           value={values.note}
           onChange={(event) => setValues((current) => ({ ...current, note: event.target.value }))}
-          placeholder="简单介绍你的经历、可投入时间，以及为什么适合这个机会。"
+          placeholder="简单介绍你的经历、可投入时间，以及为什么适合这个招募。"
           className="field-base"
         />
         <FieldError message={fieldErrors.note} />
@@ -98,7 +98,7 @@ export function ApplicationForm({ opportunityId }: { opportunityId: string }) {
         disabled={isPending}
         className="w-full rounded-full bg-[var(--accent)] px-5 py-3 font-semibold text-white transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-70"
       >
-        {isPending ? "提交中..." : "提交报名"}
+        {isPending ? "提交中..." : "立即报名"}
       </button>
     </form>
   );

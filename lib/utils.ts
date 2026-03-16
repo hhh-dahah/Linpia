@@ -8,7 +8,7 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function formatDate(date: string | Date) {
-  return format(new Date(date), "M 月 d 日", { locale: zhCN });
+  return format(new Date(date), "M月d日", { locale: zhCN });
 }
 
 export function isBeforeToday(date: string) {

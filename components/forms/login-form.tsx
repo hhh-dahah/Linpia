@@ -89,7 +89,7 @@ export function LoginForm({ nextPath }: { nextPath: string }) {
         return;
       }
 
-      setServerState({ status: "success", message: "登录成功，正在进入页面。" });
+      setServerState({ status: "success", message: "登录成功，正在进入下一步。" });
       router.replace(nextPath);
       router.refresh();
     });

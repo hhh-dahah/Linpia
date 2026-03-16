@@ -3,17 +3,15 @@
 import { useMemo, useState, useTransition } from "react";
 
 import { saveProfileAction } from "@/app/actions";
+import { studentDirectionOptions, schools, skillOptions, timeCommitmentOptions } from "@/constants";
 import { FormFeedback } from "@/components/ui/form-feedback";
 import { FieldError } from "@/components/ui/field-error";
 import { FieldLabel } from "@/components/ui/field-label";
 import { ImageUploadInput } from "@/components/ui/image-upload-input";
-import { schools, skillOptions, timeCommitmentOptions } from "@/constants";
 import { scrollToFirstError } from "@/lib/form";
 import { initialActionState, type ActionState } from "@/types/action";
 import type { TalentDetail } from "@/types/profile";
 import { profileSchema } from "@/validators/profile";
-
-const directionOptions = ["比赛组队", "项目招募", "导师机会", "短期协作"];
 
 type ProfileFormValues = {
   name: string;
@@ -25,6 +23,8 @@ type ProfileFormValues = {
   interestedDirections: string[];
   timeCommitment: string;
   portfolioExternalUrl: string;
+  experience: string;
+  contact: string;
 };
 
 export function ProfileForm({ profile }: { profile?: TalentDetail | null }) {
@@ -41,6 +41,8 @@ export function ProfileForm({ profile }: { profile?: TalentDetail | null }) {
     interestedDirections: profile?.interestedDirections || [],
     timeCommitment: profile?.timeCommitment || "",
     portfolioExternalUrl: profile?.portfolioExternalUrl || "",
+    experience: profile?.experience || "",
+    contact: profile?.contact || "",
   });
 
   const selectedSkills = useMemo(() => new Set(values.skillTags), [values.skillTags]);
@@ -112,12 +114,13 @@ export function ProfileForm({ profile }: { profile?: TalentDetail | null }) {
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="grid gap-4 md:grid-cols-2">
         <label className="block space-y-2">
-          <FieldLabel required>姓名</FieldLabel>
+          <FieldLabel required>姓名 / 昵称</FieldLabel>
           <input
             name="name"
             value={values.name}
             onChange={(event) => setValue("name", event.target.value)}
             className="field-base"
+            placeholder="怎么称呼你"
           />
           <FieldError message={fieldErrors.name} />
         </label>
@@ -146,6 +149,7 @@ export function ProfileForm({ profile }: { profile?: TalentDetail | null }) {
             value={values.major}
             onChange={(event) => setValue("major", event.target.value)}
             className="field-base"
+            placeholder="例如：软件工程"
           />
         </label>
 
@@ -156,20 +160,20 @@ export function ProfileForm({ profile }: { profile?: TalentDetail | null }) {
             value={values.grade}
             onChange={(event) => setValue("grade", event.target.value)}
             className="field-base"
-            placeholder="如：大二"
+            placeholder="例如：大二"
           />
         </label>
       </div>
 
       <label className="block space-y-2">
-        <FieldLabel>一句话介绍</FieldLabel>
+        <FieldLabel>自我介绍</FieldLabel>
         <textarea
           name="bio"
           rows={4}
           value={values.bio}
           onChange={(event) => setValue("bio", event.target.value)}
           className="field-base"
-          placeholder="简单介绍你现在在做什么、想参与什么。"
+          placeholder="简单介绍你擅长什么、想参与什么。"
         />
       </label>
 
@@ -201,9 +205,9 @@ export function ProfileForm({ profile }: { profile?: TalentDetail | null }) {
         </div>
 
         <div>
-          <FieldLabel>想参与方向</FieldLabel>
+          <FieldLabel>想加入的方向</FieldLabel>
           <div className="mt-3 flex flex-wrap gap-2">
-            {directionOptions.map((item) => (
+            {studentDirectionOptions.map((item) => (
               <label
                 key={item}
                 className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm transition ${
@@ -228,6 +232,34 @@ export function ProfileForm({ profile }: { profile?: TalentDetail | null }) {
 
       <div className="grid gap-4 md:grid-cols-2">
         <label className="block space-y-2">
+          <FieldLabel>比赛 / 项目经历</FieldLabel>
+          <textarea
+            name="experience"
+            rows={4}
+            value={values.experience}
+            onChange={(event) => setValue("experience", event.target.value)}
+            className="field-base"
+            placeholder="写你参与过的比赛、项目或合作经历。"
+          />
+          <FieldError message={fieldErrors.experience} />
+        </label>
+
+        <label className="block space-y-2">
+          <FieldLabel>联系方式</FieldLabel>
+          <textarea
+            name="contact"
+            rows={4}
+            value={values.contact}
+            onChange={(event) => setValue("contact", event.target.value)}
+            className="field-base"
+            placeholder="例如：站内联系 / 飞书 / 微信备注方式"
+          />
+          <FieldError message={fieldErrors.contact} />
+        </label>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <label className="block space-y-2">
           <FieldLabel>可投入时间</FieldLabel>
           <select
             name="timeCommitment"
@@ -245,12 +277,12 @@ export function ProfileForm({ profile }: { profile?: TalentDetail | null }) {
         </label>
 
         <label className="block space-y-2">
-          <FieldLabel>作品外链</FieldLabel>
+          <FieldLabel>作品链接</FieldLabel>
           <input
             name="portfolioExternalUrl"
             value={values.portfolioExternalUrl}
             onChange={(event) => setValue("portfolioExternalUrl", event.target.value)}
-            placeholder="https://...（飞书、GitHub、作品页都可以）"
+            placeholder="https://..."
             className="field-base"
           />
           <FieldError message={fieldErrors.portfolioExternalUrl} />
@@ -260,16 +292,16 @@ export function ProfileForm({ profile }: { profile?: TalentDetail | null }) {
       <div className="grid gap-4 lg:grid-cols-2">
         <ImageUploadInput
           name="avatar"
-          label="头像（可选）"
-          helper="建议压缩到 256x256 左右，100KB 内。"
+          label="头像"
+          helper="可选，建议压缩后上传。"
           previewUrl={profile?.avatarPath}
           maxWidthOrHeight={512}
           maxSizeMB={0.12}
         />
         <ImageUploadInput
           name="portfolioCover"
-          label="作品封面（可选）"
-          helper="长边建议 1280px，100-300KB 内。"
+          label="作品封面"
+          helper="可选，用于展示你的能力卡。"
           previewUrl={profile?.portfolioCoverPath}
         />
       </div>
@@ -280,7 +312,7 @@ export function ProfileForm({ profile }: { profile?: TalentDetail | null }) {
         disabled={isPending}
         className="rounded-full bg-[var(--primary)] px-5 py-3 font-semibold text-white transition hover:bg-[var(--primary-strong)] disabled:cursor-not-allowed disabled:opacity-70"
       >
-        {isPending ? "保存中..." : "保存个人资料"}
+        {isPending ? "保存中..." : "保存学生资料"}
       </button>
     </form>
   );

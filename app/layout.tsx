@@ -21,7 +21,7 @@ const spaceGrotesk = Space_Grotesk({
 
 export const metadata: Metadata = {
   title: "邻派 Linpai",
-  description: "校园里的机会、招募、技能展示与导师连接平台。",
+  description: "面向学生、队长和导师的校园合作与招募平台。",
 };
 
 export default function RootLayout({

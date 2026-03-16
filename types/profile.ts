@@ -1,3 +1,5 @@
+import type { AccountRole } from "@/types/account";
+
 export type TalentCard = {
   id: string;
   name: string;
@@ -14,6 +16,24 @@ export type TalentCard = {
 };
 
 export type TalentDetail = TalentCard & {
+  nickname?: string;
+  experience: string;
+  contact: string;
   achievements: string[];
   contactHint: string;
+};
+
+export type PersonalShowcase = {
+  id: string;
+  role: AccountRole;
+  title: string;
+  subtitle: string;
+  summary: string;
+  tags: string[];
+  sections: Array<{
+    label: string;
+    value: string;
+  }>;
+  ctaLabel: string;
+  editPath: string;
 };
