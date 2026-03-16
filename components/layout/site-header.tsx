@@ -2,8 +2,9 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { logoutAction } from "@/app/actions";
-import { siteNavigation } from "@/constants";
 import { getCurrentUser } from "@/lib/auth";
+
+import { SiteNav } from "./site-nav";
 
 export async function SiteHeader() {
   const user = await getCurrentUser();
@@ -39,7 +40,7 @@ export async function SiteHeader() {
                 <form action={logoutAction}>
                   <button
                     type="submit"
-                    className="rounded-full bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_24px_rgba(255,159,74,0.2)]"
+                    className="rounded-full bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_24px_rgba(255,159,74,0.2)] active:scale-[0.97]"
                   >
                     退出登录
                   </button>
@@ -47,10 +48,16 @@ export async function SiteHeader() {
               </>
             ) : (
               <>
-                <Link href="/login" className="ui-button-secondary px-4 py-2 text-sm font-semibold">
+                <Link
+                  href="/login"
+                  className="ui-button-secondary px-4 py-2 text-sm font-semibold active:scale-[0.97]"
+                >
                   登录
                 </Link>
-                <Link href="/publish" className="ui-button-primary px-4 py-2 text-sm font-semibold">
+                <Link
+                  href="/publish"
+                  className="ui-button-primary px-4 py-2 text-sm font-semibold active:scale-[0.97]"
+                >
                   发布机会
                 </Link>
               </>
@@ -58,19 +65,7 @@ export async function SiteHeader() {
           </div>
         </div>
 
-        <nav className="-mx-4 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0">
-          <div className="flex min-w-max items-center gap-2 text-sm font-medium text-[var(--muted)]">
-            {siteNavigation.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="rounded-full px-4 py-2.5 transition duration-200 hover:bg-[var(--primary-soft)] hover:text-[var(--primary)]"
-              >
-                {item.label}
-              </Link>
-            ))}
-          </div>
-        </nav>
+        <SiteNav />
       </div>
     </header>
   );
