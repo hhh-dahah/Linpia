@@ -10,19 +10,19 @@ import { listCases, listMentors, listOpportunities, listTalents } from "@/lib/da
 
 const heroActions = [
   {
-    title: "我要找机会",
+    title: "我要匹配队伍",
     description: "看比赛组队、项目招募、导师合作和短期协作，快速找到适合自己的入口。",
     href: "/opportunities",
-    cta: "去找机会",
+    cta: "去找队伍",
     icon: Search,
     tone:
       "bg-[linear-gradient(135deg,_rgba(51,112,255,0.12),_rgba(116,194,255,0.18))] text-[var(--primary-strong)]",
   },
   {
-    title: "我要发布机会",
+    title: "我要发布招募",
     description: "给队长、项目发起人、导师使用，把你要找的人和项目需求清楚发出来。",
     href: "/publish",
-    cta: "去发布",
+    cta: "去发布招募",
     icon: BriefcaseBusiness,
     tone:
       "bg-[linear-gradient(135deg,_rgba(255,159,74,0.14),_rgba(255,214,164,0.22))] text-[#b96522]",
