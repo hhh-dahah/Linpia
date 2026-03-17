@@ -52,7 +52,7 @@ export default async function DashboardPage() {
           </div>
           <div className="flex flex-wrap gap-3">
             <Link href="/profile" className="ui-button-secondary px-4 py-2 text-sm font-semibold">
-              查看展示页
+              查看个人资料
             </Link>
             <Link href="/publish" className="ui-button-primary px-4 py-2 text-sm font-semibold">
               发布招募

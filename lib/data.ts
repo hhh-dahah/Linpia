@@ -213,6 +213,30 @@ function filterTalents(items: TalentDetail[], filters: ListFilters) {
   });
 }
 
+function filterMentors(items: MentorCard[], filters: ListFilters) {
+  return items.filter((item) => {
+    const schoolMatch = filters.school ? item.school === filters.school : true;
+    const skillMatch = filters.skill
+      ? item.directionTags.includes(filters.skill) || item.supportScope.includes(filters.skill)
+      : true;
+    const queryMatch = matchKeyword(
+      [
+        item.name,
+        item.organization,
+        item.direction,
+        item.school,
+        item.college,
+        item.lab,
+        item.directionTags.join(" "),
+        item.supportScope.join(" "),
+      ],
+      filters.query,
+    );
+
+    return schoolMatch && skillMatch && queryMatch;
+  });
+}
+
 export async function listOpportunities(filters: ListFilters = {}) {
   if (!hasSupabaseEnv()) {
     return filterOpportunities(mockOpportunities, filters);
@@ -305,9 +329,9 @@ export async function getTalentById(id: string) {
   return talents.find((item) => item.id === id) ?? null;
 }
 
-export async function listMentors() {
+export async function listMentors(filters: ListFilters = {}) {
   if (!hasSupabaseEnv()) {
-    return mockMentors;
+    return filterMentors(mockMentors, filters);
   }
 
   try {
@@ -317,13 +341,25 @@ export async function listMentors() {
     });
 
     if (error || !data) {
-      return mockMentors;
+      return filterMentors(mockMentors, filters);
     }
 
-    return data.map((item) => normalizeMentor(item as Record<string, unknown>)) satisfies MentorCard[];
+    const normalized = data.map((item) => normalizeMentor(item as Record<string, unknown>)) satisfies MentorCard[];
+    return filterMentors(normalized, filters);
   } catch {
-    return mockMentors;
+    return filterMentors(mockMentors, filters);
   }
+}
+
+export async function getMentorById(id: string) {
+  const mentors = await listMentors();
+  return mentors.find((item) => item.id === id) ?? null;
+}
+
+export async function listTalentPool(filters: ListFilters = {}) {
+  const [students, mentors] = await Promise.all([listTalents(filters), listMentors(filters)]);
+
+  return { students, mentors };
 }
 
 export async function listCases() {
