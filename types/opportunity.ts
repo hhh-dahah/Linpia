@@ -36,6 +36,7 @@ export type OpportunityCard = {
   feishuUrl?: string | null;
   createdAt?: string;
   roleSummary: string[];
+  isDemo?: boolean;
 };
 
 export type OpportunityDetail = OpportunityCard & {

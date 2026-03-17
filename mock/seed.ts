@@ -7,6 +7,7 @@ import type { TalentDetail } from "@/types/profile";
 export const mockOpportunities: OpportunityDetail[] = [
   {
     id: "smart-rail-lab",
+    isDemo: true,
     type: "项目招募",
     title: "智慧轨交巡检 Demo 招募前端与答辩同学",
     summary: "已有巡检原型和基础数据流，希望补齐展示页面、答辩包装和联调支持。",
@@ -47,6 +48,7 @@ export const mockOpportunities: OpportunityDetail[] = [
   },
   {
     id: "mentor-ai-studio",
+    isDemo: true,
     type: "导师带队",
     title: "AI+设计工作室开放学生申请",
     summary: "导师希望组建一个跨专业小队，围绕 AI 内容工具和校园传播展开实践。",
@@ -79,6 +81,7 @@ export const mockOpportunities: OpportunityDetail[] = [
   },
   {
     id: "robot-contest",
+    isDemo: true,
     type: "比赛组队",
     title: "电子设计赛机器人赛道招募建模与控制同学",
     summary: "底盘和基础控制已搭好，正在补算法建模、演示页面和最终答辩表达。",
@@ -114,6 +117,7 @@ export const mockOpportunities: OpportunityDetail[] = [
 export const mockTalents: TalentDetail[] = [
   {
     id: "talent-lin",
+    isDemo: true,
     name: "林知夏",
     nickname: "知夏",
     school: "兰州交通大学",
@@ -131,6 +135,7 @@ export const mockTalents: TalentDetail[] = [
   },
   {
     id: "talent-song",
+    isDemo: true,
     name: "宋一凡",
     nickname: "一凡",
     school: "西北师范大学",
@@ -151,6 +156,7 @@ export const mockTalents: TalentDetail[] = [
 export const mockMentors: MentorCard[] = [
   {
     id: "mentor-wang",
+    isDemo: true,
     name: "王海峰",
     organization: "兰州交通大学 AI+设计工作室",
     school: "兰州交通大学",
@@ -165,6 +171,7 @@ export const mockMentors: MentorCard[] = [
   },
   {
     id: "mentor-liu",
+    isDemo: true,
     name: "刘静",
     organization: "机电学院实验室",
     school: "兰州交通大学",
@@ -183,6 +190,7 @@ export const mockMentors: MentorCard[] = [
 export const mockCases: CaseCard[] = [
   {
     id: "case-1",
+    isDemo: true,
     title: "轨交巡检项目 7 天内补齐展示页和答辩材料",
     summary: "通过平台补到前端和设计同学，项目在一周内完成了演示页和路演包装。",
     resultTags: ["7 天配齐", "新增 2 名成员", "答辩材料完善"],

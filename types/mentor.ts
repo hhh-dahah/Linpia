@@ -13,4 +13,5 @@ export type MentorCard = {
   lab?: string;
   supportMethod?: string;
   applicationNotes?: string;
+  isDemo?: boolean;
 };

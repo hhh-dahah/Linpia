@@ -13,6 +13,7 @@ export type TalentCard = {
   avatarPath?: string | null;
   portfolioCoverPath?: string | null;
   portfolioExternalUrl?: string | null;
+  isDemo?: boolean;
 };
 
 export type TalentDetail = TalentCard & {

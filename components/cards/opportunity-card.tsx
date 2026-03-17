@@ -11,6 +11,11 @@ export function OpportunityCard({ item }: { item: OpportunityCardType }) {
         <span className="rounded-full bg-[rgba(36,107,250,0.08)] px-3 py-1 text-xs font-semibold text-[var(--primary)]">
           {item.creatorRoleLabel}
         </span>
+        {item.isDemo ? (
+          <span className="rounded-full bg-[rgba(255,159,74,0.18)] px-3 py-1 text-xs font-semibold text-[#c26e25]">
+            示例
+          </span>
+        ) : null}
         <span className="rounded-full bg-[rgba(255,159,74,0.14)] px-3 py-1 text-xs font-semibold text-[#c26e25]">
           {item.status}
         </span>

@@ -5,4 +5,5 @@ export type CaseCard = {
   resultTags: string[];
   coverPath?: string | null;
   relatedOpportunityId?: string | null;
+  isDemo?: boolean;
 };

@@ -27,6 +27,12 @@ type ListFilters = {
 type ProfileRecord = Record<string, unknown> | null;
 type MentorRecord = Record<string, unknown> | null;
 
+const demoMentorNames = new Set(["鐜嬫捣宄?", "鍒橀潤"]);
+const demoCaseTitles = new Set([
+  "杞ㄤ氦宸℃椤圭洰 7 澶╁唴琛ラ綈灞曠ず椤靛拰绛旇京鏉愭枡",
+  "瀵煎笀甯﹂槦褰㈡垚璺ㄤ笓涓氬皬闃?",
+]);
+
 function matchKeyword(parts: Array<string | undefined>, keyword?: string) {
   if (!keyword) {
     return true;
@@ -88,6 +94,7 @@ function normalizeTalent(record: Record<string, unknown>): TalentDetail {
     achievements,
     contact: contact || String(record.contact_hint ?? ""),
     contactHint: String((record.contact_hint ?? contact) || "登录后可进一步联系。"),
+    isDemo: Boolean(record.is_demo),
   };
 }
 
@@ -108,6 +115,7 @@ function normalizeMentor(record: Record<string, unknown>): MentorCard {
     contactMode: bundle.contact,
     applicationNotes: String(record.application_notes ?? bundle.applicationNotes ?? ""),
     isOpen: Boolean(record.is_open),
+    isDemo: Boolean(record.is_demo) || demoMentorNames.has(String(record.name ?? "")),
   };
 }
 
@@ -160,6 +168,7 @@ function normalizeOpportunity(
     coverPath: (record.cover_path as string | null) ?? null,
     feishuUrl: (record.feishu_url as string | null) ?? null,
     createdAt: String(record.created_at ?? ""),
+    isDemo: Boolean(record.is_demo) || String(record.title ?? "").includes("Demo"),
     progress: String(record.progress ?? ""),
     trialTask: String(record.trial_task ?? record.application_requirement ?? ""),
     supplementaryItems: supplementaryItems.length
@@ -339,6 +348,7 @@ export async function listCases() {
       resultTags: Array.isArray(item.result_tags) ? (item.result_tags as string[]) : [],
       coverPath: (item.cover_path as string | null) ?? null,
       relatedOpportunityId: (item.related_opportunity_id as string | null) ?? null,
+      isDemo: Boolean(item.is_demo) || demoCaseTitles.has(String(item.title ?? "")),
     })) satisfies CaseCard[];
   } catch {
     return mockCases;
