@@ -3,6 +3,7 @@ create extension if not exists "pgcrypto";
 create table if not exists public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   name text not null,
+  nickname text,
   school text,
   major text,
   grade text,
@@ -14,7 +15,9 @@ create table if not exists public.profiles (
   skill_tags text[] not null default '{}',
   interested_directions text[] not null default '{}',
   achievements text[] not null default '{}',
-  contact_hint text default '登录后可以发起进一步联系。',
+  experience text,
+  contact text,
+  contact_hint text default '登录后可进一步联系。',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -37,18 +40,29 @@ create table if not exists public.opportunities (
   type text not null,
   title text not null,
   summary text not null,
+  organization text not null,
   school_scope text not null,
   deadline date not null,
   creator_id uuid not null references auth.users (id) on delete cascade,
   creator_name text,
+  creator_role text not null default 'student',
+  creator_org_name text,
+  contact_info text,
   cover_path text,
   feishu_url text,
-  status text not null default '开放报名',
+  status text not null default '开放申请',
   weekly_hours text not null,
   progress text not null,
   trial_task text,
   skill_tags text[] not null default '{}',
+  preset_tags text[] not null default '{}',
+  custom_tags text[] not null default '{}',
   deliverables text[] not null default '{}',
+  project_name text,
+  people_needed text,
+  research_direction text,
+  target_audience text,
+  support_method text,
   applicant_count integer not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -78,11 +92,17 @@ create table if not exists public.applications (
 
 create table if not exists public.mentors (
   id uuid primary key default gen_random_uuid(),
+  user_id uuid unique references auth.users (id) on delete cascade,
   name text not null,
+  school text,
+  college text,
+  lab text,
   organization text not null,
   direction text not null,
   direction_tags text[] not null default '{}',
   support_scope text[] not null default '{}',
+  support_method text,
+  application_notes text,
   avatar_path text,
   contact_mode text not null,
   is_open boolean not null default true,
@@ -98,6 +118,10 @@ create table if not exists public.cases (
   related_opportunity_id uuid references public.opportunities (id) on delete set null,
   created_at timestamptz not null default now()
 );
+
+create index if not exists idx_opportunities_creator_id on public.opportunities (creator_id);
+create index if not exists idx_opportunities_creator_role on public.opportunities (creator_role);
+create index if not exists idx_mentors_user_id on public.mentors (user_id);
 
 alter table public.profiles enable row level security;
 alter table public.opportunities enable row level security;
@@ -168,6 +192,13 @@ on public.applications for update using (auth.uid() = applicant_id);
 drop policy if exists "public can read mentors" on public.mentors;
 create policy "public can read mentors"
 on public.mentors for select using (true);
+
+drop policy if exists "users manage own mentor profile" on public.mentors;
+create policy "users manage own mentor profile"
+on public.mentors
+for all
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
 
 drop policy if exists "public can read cases" on public.cases;
 create policy "public can read cases"

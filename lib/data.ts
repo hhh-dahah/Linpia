@@ -65,6 +65,8 @@ function parseMentorContactBundle(contactMode: string) {
 
 function normalizeTalent(record: Record<string, unknown>): TalentDetail {
   const achievements = Array.isArray(record.achievements) ? (record.achievements as string[]) : [];
+  const experience = String(record.experience ?? "").trim();
+  const contact = String(record.contact ?? "").trim();
 
   return {
     id: String(record.id),
@@ -82,10 +84,10 @@ function normalizeTalent(record: Record<string, unknown>): TalentDetail {
     avatarPath: (record.avatar_path as string | null) ?? null,
     portfolioCoverPath: (record.portfolio_cover_path as string | null) ?? null,
     portfolioExternalUrl: (record.portfolio_external_url as string | null) ?? null,
-    experience: achievements.join(" / "),
+    experience: experience || achievements.join(" / "),
     achievements,
-    contact: String(record.contact_hint ?? ""),
-    contactHint: String(record.contact_hint ?? "登录后可进一步联系。"),
+    contact: contact || String(record.contact_hint ?? ""),
+    contactHint: String((record.contact_hint ?? contact) || "登录后可进一步联系。"),
   };
 }
 
@@ -99,12 +101,12 @@ function normalizeMentor(record: Record<string, unknown>): MentorCard {
     directionTags: Array.isArray(record.direction_tags) ? (record.direction_tags as string[]) : [],
     supportScope: Array.isArray(record.support_scope) ? (record.support_scope as string[]) : [],
     avatarPath: (record.avatar_path as string | null) ?? null,
-    school: bundle.school,
-    college: bundle.college,
-    lab: bundle.lab,
-    supportMethod: bundle.supportMethod,
+    school: String(record.school ?? bundle.school ?? ""),
+    college: String(record.college ?? bundle.college ?? ""),
+    lab: String(record.lab ?? bundle.lab ?? ""),
+    supportMethod: String(record.support_method ?? bundle.supportMethod ?? ""),
     contactMode: bundle.contact,
-    applicationNotes: bundle.applicationNotes,
+    applicationNotes: String(record.application_notes ?? bundle.applicationNotes ?? ""),
     isOpen: Boolean(record.is_open),
   };
 }
@@ -120,21 +122,30 @@ function normalizeOpportunity(
     profileRecord?.name ??
     record.creator_name ??
     (mentorRecord ? "导师" : "学生发起人");
-  const creatorRole = mentorRecord ? "mentor" : "student";
-  const creatorOrganization =
-    String(mentorRecord?.organization ?? profileRecord?.school ?? record.school_scope ?? "");
-  const supplementaryItems = Array.isArray(record.deliverables)
-    ? (record.deliverables as string[])
-    : [];
+  const creatorRole =
+    (record.creator_role as OpportunityDetail["creatorRole"] | undefined) ?? (mentorRecord ? "mentor" : "student");
+  const creatorOrganization = String(
+    record.creator_org_name ??
+      mentorRecord?.organization ??
+      profileRecord?.school ??
+      record.organization ??
+      record.school_scope ??
+      "",
+  );
+  const combinedTags = [
+    ...(Array.isArray(record.preset_tags) ? (record.preset_tags as string[]) : []),
+    ...(Array.isArray(record.custom_tags) ? (record.custom_tags as string[]) : []),
+  ].filter(Boolean);
+  const supplementaryItems = Array.isArray(record.deliverables) ? (record.deliverables as string[]) : [];
 
   return {
     id: String(record.id),
     type: record.type as OpportunityDetail["type"],
     title: String(record.title ?? ""),
     summary: String(record.summary ?? ""),
-    organization: String(record.school_scope ?? creatorOrganization ?? ""),
+    organization: String(record.organization ?? record.school_scope ?? creatorOrganization ?? ""),
     deadline: String(record.deadline ?? new Date().toISOString()),
-    tags: Array.isArray(record.skill_tags) ? (record.skill_tags as string[]) : [],
+    tags: combinedTags.length ? combinedTags : Array.isArray(record.skill_tags) ? (record.skill_tags as string[]) : [],
     status:
       isBeforeToday(String(record.deadline ?? ""))
         ? "已截止"
@@ -150,8 +161,17 @@ function normalizeOpportunity(
     feishuUrl: (record.feishu_url as string | null) ?? null,
     createdAt: String(record.created_at ?? ""),
     progress: String(record.progress ?? ""),
-    trialTask: String(record.trial_task ?? ""),
-    supplementaryItems,
+    trialTask: String(record.trial_task ?? record.application_requirement ?? ""),
+    supplementaryItems: supplementaryItems.length
+      ? supplementaryItems
+      : [
+          record.project_name ? `项目 / 比赛名称：${String(record.project_name)}` : "",
+          record.people_needed ? `需要什么人：${String(record.people_needed)}` : "",
+          record.research_direction ? `研究 / 指导方向：${String(record.research_direction)}` : "",
+          record.target_audience ? `面向对象：${String(record.target_audience)}` : "",
+          record.support_method ? `支持方式：${String(record.support_method)}` : "",
+          record.contact_info ? `联系说明：${String(record.contact_info)}` : "",
+        ].filter(Boolean),
     roleSummary: roleGaps.map((item) => item.roleName),
     roleGaps,
   };
@@ -205,11 +225,9 @@ export async function listOpportunities(filters: ListFilters = {}) {
     const [{ data: roles }, { data: profiles }, { data: mentors }] = await Promise.all([
       supabase.from("opportunity_roles").select("*").in("opportunity_id", opportunityIds),
       creatorIds.length
-        ? supabase.from("profiles").select("id, name, school").in("id", creatorIds)
+        ? supabase.from("profiles").select("*").in("id", creatorIds)
         : Promise.resolve({ data: [] }),
-      creatorIds.length
-        ? supabase.from("mentors").select("id, name, organization").in("id", creatorIds)
-        : Promise.resolve({ data: [] }),
+      creatorIds.length ? supabase.from("mentors").select("*") : Promise.resolve({ data: [] }),
     ]);
 
     const roleMap = new Map<string, OpportunityDetail["roleGaps"]>();
@@ -227,7 +245,9 @@ export async function listOpportunities(filters: ListFilters = {}) {
     });
 
     const profileMap = new Map((profiles ?? []).map((item) => [String(item.id), item]));
-    const mentorMap = new Map((mentors ?? []).map((item) => [String(item.id), item]));
+    const mentorMap = new Map(
+      (mentors ?? []).map((item) => [String((item as Record<string, unknown>).user_id ?? item.id), item]),
+    );
 
     const normalized = data.map((item) =>
       normalizeOpportunity(
@@ -346,8 +366,13 @@ export async function getMentorProfileByUserId(userId: string) {
 
   try {
     const supabase = await getReadClient();
-    const { data } = await supabase.from("mentors").select("*").eq("id", userId).maybeSingle();
-    return data ? normalizeMentor(data as Record<string, unknown>) : null;
+    let result = await supabase.from("mentors").select("*").eq("user_id", userId).maybeSingle();
+
+    if (result.error) {
+      result = await supabase.from("mentors").select("*").eq("id", userId).maybeSingle();
+    }
+
+    return result.data ? normalizeMentor(result.data as Record<string, unknown>) : null;
   } catch {
     return null;
   }
@@ -414,10 +439,16 @@ export async function getDashboardSnapshot(userId?: string | null, role?: Accoun
 
   try {
     const supabase = await getReadClient();
+    const mentorProfilePromise = async () => {
+      let result = await supabase.from("mentors").select("*").eq("user_id", userId).maybeSingle();
+      if (result.error) {
+        result = await supabase.from("mentors").select("*").eq("id", userId).maybeSingle();
+      }
+      return result;
+    };
+
     const [profile, applications, opportunities] = await Promise.all([
-      role === "mentor"
-        ? supabase.from("mentors").select("*").eq("id", userId).maybeSingle()
-        : supabase.from("profiles").select("*").eq("id", userId).maybeSingle(),
+      role === "mentor" ? mentorProfilePromise() : supabase.from("profiles").select("*").eq("id", userId).maybeSingle(),
       supabase
         .from("applications")
         .select("id, status, created_at, opportunity_title")

@@ -1,6 +1,7 @@
 import { opportunityTypes } from "@/types/opportunity";
 
 export const siteNavigation = [
+  { href: "/", label: "首页" },
   { href: "/opportunities", label: "找队伍" },
   { href: "/publish", label: "发招募" },
   { href: "/profile", label: "展示技能" },

@@ -68,13 +68,21 @@ export async function getUserFlowState(): Promise<UserFlowState> {
   }
 
   if (role === "mentor") {
-    const { data } = await client
+    let result = await client
       .from("mentors")
-      .select("id, name, organization, direction")
-      .eq("id", user.id)
+      .select("*")
+      .eq("user_id", user.id)
       .maybeSingle();
 
-    if (!data?.name || !data.organization || !data.direction) {
+    if (result.error) {
+      result = await client
+        .from("mentors")
+        .select("*")
+        .eq("id", user.id)
+        .maybeSingle();
+    }
+
+    if (!result.data?.name || !result.data.organization || !result.data.direction) {
       return { status: "needs_profile", user, role, profilePath: getProfilePath(role) };
     }
   }

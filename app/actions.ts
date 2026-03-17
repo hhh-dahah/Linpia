@@ -182,7 +182,7 @@ export async function saveProfileAction(_: ActionState, formData: FormData): Pro
     });
 
     const admin = hasServiceRoleEnv() ? createAdminSupabaseClient() : supabase;
-    const { error } = await admin.from("profiles").upsert({
+    const nextPayload = {
       id: user.id,
       name: parsed.data.name,
       school: parsed.data.school,
@@ -198,10 +198,34 @@ export async function saveProfileAction(_: ActionState, formData: FormData): Pro
       achievements: parsed.data.experience ? [parsed.data.experience] : [],
       contact_hint: parsed.data.contact || "平台内联系",
       updated_at: new Date().toISOString(),
-    });
+      experience: parsed.data.experience || null,
+      contact: parsed.data.contact || null,
+      nickname: parsed.data.name,
+    };
 
-    if (error) {
-      return { status: "error", message: error.message };
+    let result = await admin.from("profiles").upsert(nextPayload);
+    if (result.error && /column/i.test(result.error.message)) {
+      result = await admin.from("profiles").upsert({
+        id: user.id,
+        name: parsed.data.name,
+        school: parsed.data.school,
+        major: parsed.data.major,
+        grade: parsed.data.grade,
+        bio: parsed.data.bio,
+        skill_tags: parsed.data.skillTags,
+        interested_directions: parsed.data.interestedDirections,
+        time_commitment: parsed.data.timeCommitment,
+        portfolio_external_url: parsed.data.portfolioExternalUrl || null,
+        avatar_path: avatarPath,
+        portfolio_cover_path: portfolioCoverPath,
+        achievements: parsed.data.experience ? [parsed.data.experience] : [],
+        contact_hint: parsed.data.contact || "平台内联系",
+        updated_at: new Date().toISOString(),
+      });
+    }
+
+    if (result.error) {
+      return { status: "error", message: result.error.message };
     }
 
     revalidatePath("/profile");
@@ -260,22 +284,45 @@ export async function saveMentorProfileAction(
       ? createAdminSupabaseClient()
       : await createServerSupabaseClient();
 
-    const { error } = await admin.from("mentors").upsert({
-      id: user.id,
+    const nextPayload = {
+      user_id: user.id,
       name: parsed.data.name,
+      school: parsed.data.school || null,
+      college: parsed.data.college || null,
+      lab: parsed.data.lab || null,
       organization:
         parsed.data.organization ||
         [parsed.data.school, parsed.data.college, parsed.data.lab].filter(Boolean).join(" / "),
       direction: parsed.data.direction,
       direction_tags: parsed.data.directionTags,
       support_scope: parsed.data.supportScope,
+      support_method: parsed.data.supportMethod,
+      application_notes: parsed.data.applicationNotes || null,
       contact_mode: buildMentorContactBundle(parsed.data),
       avatar_path: null,
       is_open: parsed.data.isOpen,
-    });
+    };
 
-    if (error) {
-      return { status: "error", message: error.message };
+    let result = await admin.from("mentors").upsert(nextPayload, { onConflict: "user_id" });
+    if (
+      result.error &&
+      (/column/i.test(result.error.message) || /constraint/i.test(result.error.message))
+    ) {
+      result = await admin.from("mentors").upsert({
+        id: user.id,
+        name: parsed.data.name,
+        organization: nextPayload.organization,
+        direction: parsed.data.direction,
+        direction_tags: parsed.data.directionTags,
+        support_scope: parsed.data.supportScope,
+        contact_mode: buildMentorContactBundle(parsed.data),
+        avatar_path: null,
+        is_open: parsed.data.isOpen,
+      });
+    }
+
+    if (result.error) {
+      return { status: "error", message: result.error.message };
     }
 
     revalidatePath("/profile");
@@ -396,12 +443,12 @@ export async function publishOpportunityAction(
     const tags = [...parsed.data.presetTags, ...parsed.data.customTags];
     const progress =
       parsed.data.role === "student"
-        ? `项目/比赛名称：${parsed.data.projectName}\n需要什么人：${parsed.data.peopleNeeded}`
-        : `研究/指导方向：${parsed.data.researchDirection}\n面向对象：${parsed.data.targetAudience}\n支持方式：${parsed.data.supportMethod}`;
+        ? `项目 / 比赛名称：${parsed.data.projectName}\n需要什么人：${parsed.data.peopleNeeded}`
+        : `研究 / 指导方向：${parsed.data.researchDirection}\n面向对象：${parsed.data.targetAudience}\n支持方式：${parsed.data.supportMethod}`;
     const supplementaryItems =
       parsed.data.role === "student"
         ? [
-            `项目/比赛名称：${parsed.data.projectName}`,
+            `项目 / 比赛名称：${parsed.data.projectName}`,
             `需要什么人：${parsed.data.peopleNeeded}`,
             `联系说明：${parsed.data.contactInfo}`,
           ]
@@ -411,15 +458,19 @@ export async function publishOpportunityAction(
             `联系说明：${parsed.data.contactInfo}`,
           ];
 
-    const { error } = await admin.from("opportunities").insert({
+    const nextPayload = {
       id: opportunityId,
       type: parsed.data.type,
       title: parsed.data.title,
       summary: parsed.data.summary,
+      organization: parsed.data.organization,
       school_scope: parsed.data.organization,
       deadline: parsed.data.deadline,
       creator_id: user.id,
       creator_name: user.email || "平台用户",
+      creator_role: parsed.data.role,
+      creator_org_name: parsed.data.organization,
+      contact_info: parsed.data.contactInfo,
       cover_path: coverPath,
       feishu_url: parsed.data.feishuUrl || null,
       status: "开放申请",
@@ -427,12 +478,42 @@ export async function publishOpportunityAction(
       progress,
       trial_task: parsed.data.applicationRequirement || null,
       skill_tags: tags,
+      preset_tags: parsed.data.presetTags,
+      custom_tags: parsed.data.customTags,
       deliverables: supplementaryItems,
+      project_name: parsed.data.role === "student" ? parsed.data.projectName : null,
+      people_needed: parsed.data.role === "student" ? parsed.data.peopleNeeded : null,
+      research_direction: parsed.data.role === "mentor" ? parsed.data.researchDirection : null,
+      target_audience: parsed.data.role === "mentor" ? parsed.data.targetAudience : null,
+      support_method: parsed.data.role === "mentor" ? parsed.data.supportMethod : null,
       applicant_count: 0,
-    });
+    };
 
-    if (error) {
-      return { status: "error", message: error.message };
+    let result = await admin.from("opportunities").insert(nextPayload);
+    if (result.error && /column/i.test(result.error.message)) {
+      result = await admin.from("opportunities").insert({
+        id: opportunityId,
+        type: parsed.data.type,
+        title: parsed.data.title,
+        summary: parsed.data.summary,
+        school_scope: parsed.data.organization,
+        deadline: parsed.data.deadline,
+        creator_id: user.id,
+        creator_name: user.email || "平台用户",
+        cover_path: coverPath,
+        feishu_url: parsed.data.feishuUrl || null,
+        status: "开放申请",
+        weekly_hours: parsed.data.weeklyHours,
+        progress,
+        trial_task: parsed.data.applicationRequirement || null,
+        skill_tags: tags,
+        deliverables: supplementaryItems,
+        applicant_count: 0,
+      });
+    }
+
+    if (result.error) {
+      return { status: "error", message: result.error.message };
     }
 
     const rolesPayload = parsed.data.roles.map((item) => ({
@@ -562,19 +643,34 @@ export async function saveMentorAction(_: ActionState, formData: FormData): Prom
 
   try {
     const admin = createAdminSupabaseClient();
-    const { error } = await admin.from("mentors").insert({
+    let result = await admin.from("mentors").insert({
       name: parsed.data.name,
       organization: parsed.data.organization,
       direction: parsed.data.direction,
       direction_tags: parsed.data.directionTags,
       support_scope: parsed.data.supportScope,
+      support_method: parsed.data.supportMethod,
+      application_notes: null,
       contact_mode: buildMentorContactBundle(parsed.data),
       avatar_path: null,
       is_open: parsed.data.isOpen,
     });
 
-    if (error) {
-      return { status: "error", message: error.message };
+    if (result.error && /column/i.test(result.error.message)) {
+      result = await admin.from("mentors").insert({
+        name: parsed.data.name,
+        organization: parsed.data.organization,
+        direction: parsed.data.direction,
+        direction_tags: parsed.data.directionTags,
+        support_scope: parsed.data.supportScope,
+        contact_mode: buildMentorContactBundle(parsed.data),
+        avatar_path: null,
+        is_open: parsed.data.isOpen,
+      });
+    }
+
+    if (result.error) {
+      return { status: "error", message: result.error.message };
     }
 
     revalidatePath("/mentors");
