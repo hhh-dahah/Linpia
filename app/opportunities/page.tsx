@@ -20,8 +20,9 @@ export default async function OpportunitiesPage({ searchParams }: SearchProps) {
       <PageHeading
         eyebrow="找队伍"
         title="在一个招募池里看完所有正在开放的队伍"
-        description="导师带队、学生队长和项目发起人的招募都在这里统一展示，不需要先区分身份。"
+        description="导师带队、学生队长和项目发起人的招募都在这里展示哦"
       />
+
       <section className="surface-card rounded-[2rem] p-6">
         <form className="grid gap-4 lg:grid-cols-4">
           <input
@@ -60,6 +61,7 @@ export default async function OpportunitiesPage({ searchParams }: SearchProps) {
           </button>
         </form>
       </section>
+
       {opportunities.length ? (
         <div className="grid gap-5 lg:grid-cols-2">
           {opportunities.map((item) => (
