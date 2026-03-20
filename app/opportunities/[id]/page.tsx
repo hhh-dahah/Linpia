@@ -19,6 +19,8 @@ export default async function OpportunityDetailPage({ params }: OpportunityDetai
     notFound();
   }
 
+  const applyNext = `/opportunities/${opportunity.id}?intent=apply`;
+
   return (
     <div className="space-y-8">
       <PageHeading
@@ -114,9 +116,20 @@ export default async function OpportunityDetailPage({ params }: OpportunityDetai
           <div id="apply" className="surface-panel rounded-[2rem] p-6">
             <h2 className="text-xl font-bold text-[var(--foreground)]">报名入口</h2>
             <p className="mt-3 text-sm leading-7 text-[var(--muted)]">
-              {user ? "登录后可以直接提交报名备注和试合作链接。" : "你可以先浏览详情；真正报名时需要先登录。"}
+              {user
+                ? "登录后可以直接提交报名备注和试合作链接。"
+                : "报名前需要先登录，登录后会自动回到这里继续操作。"}
             </p>
-            <ApplicationForm opportunityId={opportunity.id} />
+            {user ? (
+              <ApplicationForm opportunityId={opportunity.id} />
+            ) : (
+              <Link
+                href={`/login?next=${encodeURIComponent(applyNext)}`}
+                className="mt-5 inline-flex w-full items-center justify-center rounded-full bg-[var(--accent)] px-5 py-3 font-semibold text-white transition hover:opacity-95"
+              >
+                登录后立即报名
+              </Link>
+            )}
           </div>
 
           <div className="surface-panel rounded-[2rem] p-6">

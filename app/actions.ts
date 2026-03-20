@@ -4,7 +4,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
-import { getAccountRole, getCurrentUser, isAdminEmail } from "@/lib/auth";
+import {
+  getCurrentAccountRole,
+  getCurrentUser,
+  isAdminEmail,
+} from "@/lib/auth";
 import { hasServiceRoleEnv, hasSupabaseEnv } from "@/lib/env";
 import { uploadImage } from "@/lib/storage";
 import { createAdminSupabaseClient } from "@/supabase/admin";
@@ -29,10 +33,43 @@ function offlineState(message: string): ActionState {
 
 async function requireConfiguredSupabase() {
   if (!hasSupabaseEnv()) {
-    throw new Error("当前尚未配置 Supabase 环境变量，请先补齐 .env.local。");
+    throw new Error("当前还没有配置 Supabase，请先补齐 .env.local。");
   }
 
   return createServerSupabaseClient();
+}
+
+async function getWriteClient() {
+  if (hasServiceRoleEnv()) {
+    return createAdminSupabaseClient();
+  }
+
+  return createServerSupabaseClient();
+}
+
+async function syncLegacyUserRole(userId: string, role: "student" | "mentor") {
+  if (!hasServiceRoleEnv()) {
+    return;
+  }
+
+  const admin = createAdminSupabaseClient();
+  await admin.auth.admin.updateUserById(userId, {
+    user_metadata: {
+      role,
+    },
+  });
+}
+
+function buildMentorOrganization(payload: {
+  organization: string;
+  school?: string;
+  college?: string;
+  lab?: string;
+}) {
+  return (
+    payload.organization ||
+    [payload.school, payload.college, payload.lab].filter(Boolean).join(" / ")
+  );
 }
 
 function buildMentorContactBundle(payload: {
@@ -47,12 +84,40 @@ function buildMentorContactBundle(payload: {
     payload.school ? `学校：${payload.school}` : "",
     payload.college ? `学院：${payload.college}` : "",
     payload.lab ? `实验室：${payload.lab}` : "",
-    `支持方式：${payload.supportMethod}`,
-    `联系方式：${payload.contactMode}`,
+    payload.supportMethod ? `支持方式：${payload.supportMethod}` : "",
+    payload.contactMode ? `联系方式：${payload.contactMode}` : "",
     payload.applicationNotes ? `申请说明：${payload.applicationNotes}` : "",
   ]
     .filter(Boolean)
     .join("\n");
+}
+
+function getRoleCompletion(payload: {
+  nickname?: string;
+  school?: string;
+  major?: string;
+  grade?: string;
+  bio?: string;
+  experience?: string;
+  contact?: string;
+  direction?: string;
+  supportScope?: string[];
+  supportMethod?: string;
+  organization?: string;
+}) {
+  return Boolean(
+    payload.nickname ||
+      payload.school ||
+      payload.major ||
+      payload.grade ||
+      payload.bio ||
+      payload.experience ||
+      payload.contact ||
+      payload.direction ||
+      payload.supportMethod ||
+      payload.organization ||
+      (payload.supportScope?.length ?? 0) > 0,
+  );
 }
 
 export async function logoutAction() {
@@ -65,10 +130,7 @@ export async function logoutAction() {
 }
 
 export async function loginAction() {
-  return {
-    status: "error",
-    message: "当前登录页已切换到邮箱验证码登录，请直接在页面内完成验证。",
-  } satisfies ActionState;
+  redirect("/login");
 }
 
 export async function saveRoleAction(_: ActionState, formData: FormData): Promise<ActionState> {
@@ -77,9 +139,9 @@ export async function saveRoleAction(_: ActionState, formData: FormData): Promis
   if (role !== "student" && role !== "mentor") {
     return {
       status: "error",
-      message: "请选择你的身份后再继续。",
+      message: "请先选择你的身份。",
       fieldErrors: {
-        role: ["请选择学生或导师"],
+        role: ["请选择学生或导师。"],
       },
     };
   }
@@ -92,35 +154,38 @@ export async function saveRoleAction(_: ActionState, formData: FormData): Promis
     };
   }
 
-  if (!hasServiceRoleEnv()) {
-    return offlineState("请先配置 SUPABASE_SERVICE_ROLE_KEY 后再保存身份。");
+  if (!hasSupabaseEnv()) {
+    return offlineState("当前还没有配置 Supabase，请先完成环境配置。");
   }
 
   try {
-    const admin = createAdminSupabaseClient();
-    const { error } = await admin.auth.admin.updateUserById(user.id, {
-      user_metadata: {
-        ...user.user_metadata,
-        role,
-      },
+    const client = await getWriteClient();
+    const { error } = await client.from("profiles").upsert({
+      id: user.id,
+      role,
+      nickname: user.email?.split("@")[0] || null,
+      profile_completed: false,
+      updated_at: new Date().toISOString(),
     });
 
-    if (error) {
-      return { status: "error", message: error.message };
+    if (error && !/column .*role|column .*profile_completed/i.test(error.message)) {
+      return { status: "error", message: "身份保存失败，请稍后再试。" };
     }
 
-    revalidatePath("/publish");
+    await syncLegacyUserRole(user.id, role);
+
+    revalidatePath("/onboarding/role");
     revalidatePath("/profile");
-    revalidatePath("/dashboard");
+    revalidatePath("/publish");
 
     return {
       status: "success",
-      message: role === "student" ? "已选择学生身份。" : "已选择导师身份。",
+      message: role === "student" ? "已切换为学生身份。" : "已切换为导师身份。",
     };
   } catch (error) {
     return {
       status: "error",
-      message: error instanceof Error ? error.message : "保存身份失败。",
+      message: error instanceof Error ? error.message : "身份保存失败，请稍后再试。",
     };
   }
 }
@@ -146,13 +211,13 @@ export async function saveProfileAction(_: ActionState, formData: FormData): Pro
   if (!parsed.success) {
     return {
       status: "error",
-      message: "请先修正学生资料表单中的问题。",
+      message: "学生资料还有几项没填好，请按提示修改。",
       fieldErrors: toFieldErrors(parsed.error),
     };
   }
 
   if (!hasSupabaseEnv()) {
-    return offlineState("资料校验已通过。配置 Supabase 后即可保存到真实数据库。");
+    return offlineState("资料校验已经通过，配置 Supabase 后就可以正式保存。");
   }
 
   try {
@@ -181,52 +246,87 @@ export async function saveProfileAction(_: ActionState, formData: FormData): Pro
       ownerId: user.id,
     });
 
-    const admin = hasServiceRoleEnv() ? createAdminSupabaseClient() : supabase;
-    const nextPayload = {
-      id: user.id,
-      name: parsed.data.name,
+    const client = await getWriteClient();
+    const profileCompleted = getRoleCompletion({
+      nickname: parsed.data.name,
       school: parsed.data.school,
       major: parsed.data.major,
       grade: parsed.data.grade,
       bio: parsed.data.bio,
-      skill_tags: parsed.data.skillTags,
-      interested_directions: parsed.data.interestedDirections,
-      time_commitment: parsed.data.timeCommitment,
-      portfolio_external_url: parsed.data.portfolioExternalUrl || null,
+      experience: parsed.data.experience,
+      contact: parsed.data.contact,
+    });
+
+    let profileResult = await client.from("profiles").upsert({
+      id: user.id,
+      role: "student",
+      nickname: parsed.data.name,
+      profile_completed: profileCompleted,
+      name: parsed.data.name,
+      school: parsed.data.school || null,
+      major: parsed.data.major || null,
+      grade: parsed.data.grade || null,
+      bio: parsed.data.bio || null,
       avatar_path: avatarPath,
       portfolio_cover_path: portfolioCoverPath,
+      portfolio_external_url: parsed.data.portfolioExternalUrl || null,
+      time_commitment: parsed.data.timeCommitment || null,
+      skill_tags: parsed.data.skillTags,
+      interested_directions: parsed.data.interestedDirections,
       achievements: parsed.data.experience ? [parsed.data.experience] : [],
-      contact_hint: parsed.data.contact || "平台内联系",
-      updated_at: new Date().toISOString(),
       experience: parsed.data.experience || null,
       contact: parsed.data.contact || null,
-      nickname: parsed.data.name,
-    };
+      contact_hint: parsed.data.contact || "登录后可进一步联系。",
+      updated_at: new Date().toISOString(),
+    });
 
-    let result = await admin.from("profiles").upsert(nextPayload);
-    if (result.error && /column/i.test(result.error.message)) {
-      result = await admin.from("profiles").upsert({
+    if (profileResult.error && /column .*role|column .*profile_completed/i.test(profileResult.error.message)) {
+      profileResult = await client.from("profiles").upsert({
         id: user.id,
+        nickname: parsed.data.name,
         name: parsed.data.name,
-        school: parsed.data.school,
-        major: parsed.data.major,
-        grade: parsed.data.grade,
-        bio: parsed.data.bio,
-        skill_tags: parsed.data.skillTags,
-        interested_directions: parsed.data.interestedDirections,
-        time_commitment: parsed.data.timeCommitment,
-        portfolio_external_url: parsed.data.portfolioExternalUrl || null,
+        school: parsed.data.school || null,
+        major: parsed.data.major || null,
+        grade: parsed.data.grade || null,
+        bio: parsed.data.bio || null,
         avatar_path: avatarPath,
         portfolio_cover_path: portfolioCoverPath,
+        portfolio_external_url: parsed.data.portfolioExternalUrl || null,
+        time_commitment: parsed.data.timeCommitment || null,
+        skill_tags: parsed.data.skillTags,
+        interested_directions: parsed.data.interestedDirections,
         achievements: parsed.data.experience ? [parsed.data.experience] : [],
-        contact_hint: parsed.data.contact || "平台内联系",
+        experience: parsed.data.experience || null,
+        contact: parsed.data.contact || null,
+        contact_hint: parsed.data.contact || "登录后可进一步联系。",
         updated_at: new Date().toISOString(),
       });
     }
 
-    if (result.error) {
-      return { status: "error", message: result.error.message };
+    if (profileResult.error) {
+      return { status: "error", message: "学生主资料保存失败，请稍后再试。" };
     }
+
+    const studentProfileResult = await client.from("student_profiles").upsert({
+      user_id: user.id,
+      school: parsed.data.school || null,
+      major: parsed.data.major || null,
+      grade: parsed.data.grade || null,
+      skills: parsed.data.skillTags,
+      intro: parsed.data.bio || null,
+      portfolio: parsed.data.portfolioExternalUrl || null,
+      target_direction: parsed.data.interestedDirections.join("、") || null,
+      contact: parsed.data.contact || null,
+    });
+
+    if (
+      studentProfileResult.error &&
+      !/relation .*student_profiles.* does not exist/i.test(studentProfileResult.error.message)
+    ) {
+      return { status: "error", message: "学生资料保存失败，请稍后再试。" };
+    }
+
+    await syncLegacyUserRole(user.id, "student");
 
     revalidatePath("/profile");
     revalidatePath("/profile/student");
@@ -237,7 +337,7 @@ export async function saveProfileAction(_: ActionState, formData: FormData): Pro
   } catch (error) {
     return {
       status: "error",
-      message: error instanceof Error ? error.message : "保存学生资料失败。",
+      message: error instanceof Error ? error.message : "学生资料保存失败，请稍后再试。",
     };
   }
 }
@@ -265,7 +365,7 @@ export async function saveMentorProfileAction(
   if (!parsed.success) {
     return {
       status: "error",
-      message: "请先修正导师资料表单中的问题。",
+      message: "导师资料还有几项没填好，请按提示修改。",
       fieldErrors: toFieldErrors(parsed.error),
     };
   }
@@ -276,65 +376,102 @@ export async function saveMentorProfileAction(
   }
 
   if (!hasSupabaseEnv()) {
-    return offlineState("导师资料校验已通过。配置 Supabase 后即可保存到真实数据库。");
+    return offlineState("资料校验已经通过，配置 Supabase 后就可以正式保存。");
   }
 
   try {
-    const admin = hasServiceRoleEnv()
-      ? createAdminSupabaseClient()
-      : await createServerSupabaseClient();
-
-    const nextPayload = {
-      user_id: user.id,
-      name: parsed.data.name,
-      school: parsed.data.school || null,
-      college: parsed.data.college || null,
-      lab: parsed.data.lab || null,
-      organization:
-        parsed.data.organization ||
-        [parsed.data.school, parsed.data.college, parsed.data.lab].filter(Boolean).join(" / "),
+    const client = await getWriteClient();
+    const organization = buildMentorOrganization(parsed.data);
+    const profileCompleted = getRoleCompletion({
+      nickname: parsed.data.name,
       direction: parsed.data.direction,
-      direction_tags: parsed.data.directionTags,
-      support_scope: parsed.data.supportScope,
-      support_method: parsed.data.supportMethod,
-      application_notes: parsed.data.applicationNotes || null,
-      contact_mode: buildMentorContactBundle(parsed.data),
-      avatar_path: null,
-      is_open: parsed.data.isOpen,
-    };
+      supportScope: parsed.data.supportScope,
+      supportMethod: parsed.data.supportMethod,
+      organization,
+    });
 
-    let result = await admin.from("mentors").upsert(nextPayload, { onConflict: "user_id" });
-    if (
-      result.error &&
-      (/column/i.test(result.error.message) || /constraint/i.test(result.error.message))
-    ) {
-      result = await admin.from("mentors").upsert({
+    let profileResult = await client.from("profiles").upsert({
+      id: user.id,
+      role: "mentor",
+      nickname: parsed.data.name,
+      profile_completed: profileCompleted,
+      updated_at: new Date().toISOString(),
+    });
+
+    if (profileResult.error && /column .*role|column .*profile_completed/i.test(profileResult.error.message)) {
+      profileResult = await client.from("profiles").upsert({
         id: user.id,
-        name: parsed.data.name,
-        organization: nextPayload.organization,
-        direction: parsed.data.direction,
-        direction_tags: parsed.data.directionTags,
-        support_scope: parsed.data.supportScope,
-        contact_mode: buildMentorContactBundle(parsed.data),
-        avatar_path: null,
-        is_open: parsed.data.isOpen,
+        nickname: parsed.data.name,
+        updated_at: new Date().toISOString(),
       });
     }
 
-    if (result.error) {
-      return { status: "error", message: result.error.message };
+    if (profileResult.error) {
+      return { status: "error", message: "导师主资料保存失败，请稍后再试。" };
     }
+
+    const mentorProfileResult = await client.from("mentor_profiles").upsert({
+      user_id: user.id,
+      school: parsed.data.school || null,
+      college: parsed.data.college || null,
+      lab: parsed.data.lab || null,
+      research_direction: parsed.data.direction,
+      support_types: parsed.data.supportScope,
+      support_method: parsed.data.supportMethod,
+      open_status: parsed.data.isOpen,
+      intro: parsed.data.direction,
+      contact: parsed.data.contactMode,
+      application_notes: parsed.data.applicationNotes || null,
+    });
+
+    if (
+      mentorProfileResult.error &&
+      !/relation .*mentor_profiles.* does not exist/i.test(mentorProfileResult.error.message)
+    ) {
+      return { status: "error", message: "导师资料保存失败，请稍后再试。" };
+    }
+
+    const legacyResult = await client.from("mentors").upsert(
+      {
+        user_id: user.id,
+        name: parsed.data.name,
+        school: parsed.data.school || null,
+        college: parsed.data.college || null,
+        lab: parsed.data.lab || null,
+        organization,
+        direction: parsed.data.direction,
+        direction_tags: parsed.data.directionTags,
+        support_scope: parsed.data.supportScope,
+        support_method: parsed.data.supportMethod,
+        application_notes: parsed.data.applicationNotes || null,
+        contact_mode: buildMentorContactBundle(parsed.data),
+        avatar_path: null,
+        is_open: parsed.data.isOpen,
+      },
+      { onConflict: "user_id" },
+    );
+
+    if (
+      legacyResult.error &&
+      !/constraint/i.test(legacyResult.error.message) &&
+      !/column/i.test(legacyResult.error.message)
+    ) {
+      return { status: "error", message: "导师资料保存失败，请稍后再试。" };
+    }
+
+    await syncLegacyUserRole(user.id, "mentor");
 
     revalidatePath("/profile");
     revalidatePath("/profile/mentor");
     revalidatePath("/dashboard");
+    revalidatePath("/talent");
     revalidatePath("/mentors");
 
     return { status: "success", message: "导师资料已保存。" };
   } catch (error) {
     return {
       status: "error",
-      message: error instanceof Error ? error.message : "保存导师资料失败。",
+      message: error instanceof Error ? error.message : "导师资料保存失败，请稍后再试。",
     };
   }
 }
@@ -396,13 +533,13 @@ export async function publishOpportunityAction(
   if (!parsed.success) {
     return {
       status: "error",
-      message: "发招募表单还有未完成或未填写正确的内容。",
+      message: "招募表单还有几项没填好，请按提示修改。",
       fieldErrors: toFieldErrors(parsed.error),
     };
   }
 
   if (!hasSupabaseEnv()) {
-    return offlineState("招募表单校验已通过。配置 Supabase 后即可正式发布。");
+    return offlineState("表单校验已经通过，配置 Supabase 后就可以正式发布。");
   }
 
   try {
@@ -415,18 +552,18 @@ export async function publishOpportunityAction(
       return offlineState("请先登录后再发布招募。");
     }
 
-    const currentRole = getAccountRole(user);
+    const currentRole = await getCurrentAccountRole(user);
     if (!currentRole) {
       return {
         status: "error",
-        message: "请先选择你的身份后再发布招募。",
+        message: "请先选择身份，再继续发布招募。",
       };
     }
 
     if (currentRole !== parsed.data.role) {
       return {
         status: "error",
-        message: "当前身份与招募表单不匹配，请刷新页面后重试。",
+        message: "当前身份和表单不匹配，请刷新页面后再试。",
       };
     }
 
@@ -439,7 +576,7 @@ export async function publishOpportunityAction(
       ownerId: opportunityId,
     });
 
-    const admin = hasServiceRoleEnv() ? createAdminSupabaseClient() : supabase;
+    const client = await getWriteClient();
     const tags = [...parsed.data.presetTags, ...parsed.data.customTags];
     const progress =
       parsed.data.role === "student"
@@ -458,7 +595,8 @@ export async function publishOpportunityAction(
             `联系说明：${parsed.data.contactInfo}`,
           ];
 
-    const nextPayload = {
+    const creatorName = user.email?.split("@")[0] || "邻派用户";
+    const insertResult = await client.from("opportunities").insert({
       id: opportunityId,
       type: parsed.data.type,
       title: parsed.data.title,
@@ -467,7 +605,7 @@ export async function publishOpportunityAction(
       school_scope: parsed.data.organization,
       deadline: parsed.data.deadline,
       creator_id: user.id,
-      creator_name: user.email || "平台用户",
+      creator_name: creatorName,
       creator_role: parsed.data.role,
       creator_org_name: parsed.data.organization,
       contact_info: parsed.data.contactInfo,
@@ -487,33 +625,10 @@ export async function publishOpportunityAction(
       target_audience: parsed.data.role === "mentor" ? parsed.data.targetAudience : null,
       support_method: parsed.data.role === "mentor" ? parsed.data.supportMethod : null,
       applicant_count: 0,
-    };
+    });
 
-    let result = await admin.from("opportunities").insert(nextPayload);
-    if (result.error && /column/i.test(result.error.message)) {
-      result = await admin.from("opportunities").insert({
-        id: opportunityId,
-        type: parsed.data.type,
-        title: parsed.data.title,
-        summary: parsed.data.summary,
-        school_scope: parsed.data.organization,
-        deadline: parsed.data.deadline,
-        creator_id: user.id,
-        creator_name: user.email || "平台用户",
-        cover_path: coverPath,
-        feishu_url: parsed.data.feishuUrl || null,
-        status: "开放申请",
-        weekly_hours: parsed.data.weeklyHours,
-        progress,
-        trial_task: parsed.data.applicationRequirement || null,
-        skill_tags: tags,
-        deliverables: supplementaryItems,
-        applicant_count: 0,
-      });
-    }
-
-    if (result.error) {
-      return { status: "error", message: result.error.message };
+    if (insertResult.error) {
+      return { status: "error", message: "招募发布失败，请稍后再试。" };
     }
 
     const rolesPayload = parsed.data.roles.map((item) => ({
@@ -525,9 +640,9 @@ export async function publishOpportunityAction(
       weekly_hours: item.weeklyHours,
     }));
 
-    const { error: rolesError } = await admin.from("opportunity_roles").insert(rolesPayload);
+    const { error: rolesError } = await client.from("opportunity_roles").insert(rolesPayload);
     if (rolesError) {
-      return { status: "error", message: rolesError.message };
+      return { status: "error", message: "招募已创建，但角色信息保存失败，请稍后再试。" };
     }
 
     revalidatePath("/opportunities");
@@ -538,7 +653,7 @@ export async function publishOpportunityAction(
   } catch (error) {
     return {
       status: "error",
-      message: error instanceof Error ? error.message : "发布招募失败。",
+      message: error instanceof Error ? error.message : "招募发布失败，请稍后再试。",
     };
   }
 }
@@ -557,13 +672,13 @@ export async function applyOpportunityAction(
   if (!parsed.success) {
     return {
       status: "error",
-      message: "报名信息还有未完成或未填写正确的内容。",
+      message: "报名信息还有几项没填好，请按提示补充。",
       fieldErrors: toFieldErrors(parsed.error),
     };
   }
 
   if (!hasSupabaseEnv()) {
-    return offlineState("报名信息校验已通过。配置 Supabase 后即可写入真实记录。");
+    return offlineState("报名信息校验已经通过，配置 Supabase 后就可以写入真实记录。");
   }
 
   try {
@@ -576,14 +691,14 @@ export async function applyOpportunityAction(
       return offlineState("请先登录，登录后即可发布招募、报名合作和管理个人资料。");
     }
 
-    const admin = hasServiceRoleEnv() ? createAdminSupabaseClient() : supabase;
-    const { data: opportunity } = await admin
+    const client = await getWriteClient();
+    const { data: opportunity } = await client
       .from("opportunities")
       .select("title")
       .eq("id", parsed.data.opportunityId)
       .maybeSingle();
 
-    const { error } = await admin.from("applications").upsert({
+    const { error } = await client.from("applications").upsert({
       opportunity_id: parsed.data.opportunityId,
       applicant_id: user.id,
       note: parsed.data.note,
@@ -593,16 +708,16 @@ export async function applyOpportunityAction(
     });
 
     if (error) {
-      return { status: "error", message: error.message };
+      return { status: "error", message: "报名提交失败，请稍后再试。" };
     }
 
     revalidatePath("/dashboard");
 
-    return { status: "success", message: "报名已提交，请等待发起方查看。" };
+    return { status: "success", message: "报名已提交，发起方看到后会尽快联系你。" };
   } catch (error) {
     return {
       status: "error",
-      message: error instanceof Error ? error.message : "报名失败。",
+      message: error instanceof Error ? error.message : "报名提交失败，请稍后再试。",
     };
   }
 }
@@ -627,7 +742,7 @@ export async function saveMentorAction(_: ActionState, formData: FormData): Prom
   if (!parsed.success) {
     return {
       status: "error",
-      message: "导师表单还有未完成的内容。",
+      message: "导师表单还有几项没填好。",
       fieldErrors: toFieldErrors(parsed.error),
     };
   }
@@ -638,12 +753,12 @@ export async function saveMentorAction(_: ActionState, formData: FormData): Prom
   }
 
   if (!hasServiceRoleEnv()) {
-    return offlineState("请先配置 SUPABASE_SERVICE_ROLE_KEY 后再进行后台录入。");
+    return offlineState("请先配置 SUPABASE_SERVICE_ROLE_KEY 再进行后台录入。");
   }
 
   try {
     const admin = createAdminSupabaseClient();
-    let result = await admin.from("mentors").insert({
+    const { error } = await admin.from("mentors").insert({
       name: parsed.data.name,
       organization: parsed.data.organization,
       direction: parsed.data.direction,
@@ -656,21 +771,8 @@ export async function saveMentorAction(_: ActionState, formData: FormData): Prom
       is_open: parsed.data.isOpen,
     });
 
-    if (result.error && /column/i.test(result.error.message)) {
-      result = await admin.from("mentors").insert({
-        name: parsed.data.name,
-        organization: parsed.data.organization,
-        direction: parsed.data.direction,
-        direction_tags: parsed.data.directionTags,
-        support_scope: parsed.data.supportScope,
-        contact_mode: buildMentorContactBundle(parsed.data),
-        avatar_path: null,
-        is_open: parsed.data.isOpen,
-      });
-    }
-
-    if (result.error) {
-      return { status: "error", message: result.error.message };
+    if (error) {
+      return { status: "error", message: "导师录入失败，请稍后再试。" };
     }
 
     revalidatePath("/mentors");
@@ -679,7 +781,7 @@ export async function saveMentorAction(_: ActionState, formData: FormData): Prom
   } catch (error) {
     return {
       status: "error",
-      message: error instanceof Error ? error.message : "导师录入失败。",
+      message: error instanceof Error ? error.message : "导师录入失败，请稍后再试。",
     };
   }
 }
@@ -697,7 +799,7 @@ export async function saveCaseAction(_: ActionState, formData: FormData): Promis
   if (!parsed.success) {
     return {
       status: "error",
-      message: "案例表单还有未完成的内容。",
+      message: "案例表单还有几项没填好。",
       fieldErrors: toFieldErrors(parsed.error),
     };
   }
@@ -708,7 +810,7 @@ export async function saveCaseAction(_: ActionState, formData: FormData): Promis
   }
 
   if (!hasServiceRoleEnv()) {
-    return offlineState("请先配置 SUPABASE_SERVICE_ROLE_KEY 后再进行后台录入。");
+    return offlineState("请先配置 SUPABASE_SERVICE_ROLE_KEY 再进行后台录入。");
   }
 
   try {
@@ -722,7 +824,7 @@ export async function saveCaseAction(_: ActionState, formData: FormData): Promis
     });
 
     if (error) {
-      return { status: "error", message: error.message };
+      return { status: "error", message: "案例录入失败，请稍后再试。" };
     }
 
     revalidatePath("/cases");
@@ -731,7 +833,7 @@ export async function saveCaseAction(_: ActionState, formData: FormData): Promis
   } catch (error) {
     return {
       status: "error",
-      message: error instanceof Error ? error.message : "案例录入失败。",
+      message: error instanceof Error ? error.message : "案例录入失败，请稍后再试。",
     };
   }
 }

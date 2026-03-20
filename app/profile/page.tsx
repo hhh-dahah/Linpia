@@ -25,13 +25,13 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
     <FormShell
       eyebrow="个人资料"
       title={flow.role === "student" ? "这是你现在对外展示的学生资料" : "这是你现在对外展示的导师资料"}
-      description="个人资料页会统一呈现你的基础信息、方向、标签和联系方式。资料完善后，别人能更快判断你适合加入什么合作。"
-      asideTitle="你现在可以继续做什么"
-      asideDescription="完善资料之后，你可以继续发布招募、进入管理页，或者回到人才池看看平台里还有哪些人在协作。"
+      description="这里会统一展示你的基础信息、方向、标签和联系方式。资料越清楚，别人越容易知道怎样和你合作。"
+      asideTitle="你现在还可以做什么"
+      asideDescription="资料准备好之后，你可以继续发布招募、进入管理页，或者回到人才池看看平台里还有哪些人正在协作。"
       tips={[
-        "这页会根据你的身份展示不同内容。",
         "学生和导师都通过同一个入口进入个人资料体系。",
-        "你后续补资料时，不会影响已经跑通的导航和流程。",
+        "资料补充后会同步更新到你的展示页。",
+        "如果你是来展示技能的，这里就是你的主入口。",
       ]}
     >
       {showcase ? (

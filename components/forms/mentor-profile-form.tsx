@@ -283,7 +283,7 @@ export function MentorProfileForm({ profile }: { profile?: MentorCard | null }) 
         />
         <div>
           <p className="font-semibold text-[var(--foreground)]">是否开放申请</p>
-          <p className="text-sm text-[var(--muted)]">关闭后仍展示资料，但不鼓励新申请。</p>
+          <p className="text-sm text-[var(--muted)]">关闭后资料仍然展示，但不会鼓励新的申请。</p>
         </div>
       </label>
 

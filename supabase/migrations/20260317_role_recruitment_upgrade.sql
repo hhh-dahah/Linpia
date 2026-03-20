@@ -44,7 +44,7 @@ where custom_tags is null;
 
 update public.opportunities
 set status = '开放申请'
-where status in ('寮€鏀炬姤鍚?', '开放报名', 'open');
+where status in ('开放报名', 'open');
 
 alter table public.mentors add column if not exists user_id uuid;
 alter table public.mentors add column if not exists school text;

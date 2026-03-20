@@ -31,11 +31,15 @@ export default async function StudentProfilePage({ searchParams }: StudentProfil
   return (
     <FormShell
       eyebrow="学生资料"
-      title="先把你的基础信息和想加入的方向挂出来"
-      description="展示技能不是只给“很强的人”用。就算你现在标签不多，也可以先把学校、方向和经历补上。"
+      title="把你的基础信息和想加入的方向挂出来"
+      description="不用等到自己非常完整再来填。先把学校、方向、经历和联系方式写清楚，别人就更容易判断怎么和你合作。"
       asideTitle="这页会影响什么"
-      asideDescription="学生资料完整后，你就能展示能力卡、报名合作，也能以学生队长身份继续发布招募。"
-      tips={["技能标签可以后补。", "比赛 / 项目经历尽量写具体一点。", "联系方式建议写清楚别人怎么联系你最合适。"]}
+      asideDescription="学生资料保存后，你的个人资料页就会更新，也能更顺畅地报名合作或继续发招募。"
+      tips={[
+        "技能标签可以先少填，后面再慢慢补。",
+        "比赛 / 项目经历尽量写具体一点。",
+        "联系方式建议写清楚别人怎样联系你最方便。",
+      ]}
     >
       <ProfileForm profile={profile} />
     </FormShell>

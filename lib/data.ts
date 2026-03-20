@@ -24,13 +24,15 @@ type ListFilters = {
   skill?: string;
 };
 
-type ProfileRecord = Record<string, unknown> | null;
-type MentorRecord = Record<string, unknown> | null;
+type ProfileRecord = Record<string, unknown>;
+type StudentProfileRecord = Record<string, unknown>;
+type MentorProfileRecord = Record<string, unknown>;
+type LegacyMentorRecord = Record<string, unknown>;
 
-const demoMentorNames = new Set(["鐜嬫捣宄?", "鍒橀潤"]);
+const demoMentorNames = new Set(["王海峰", "刘明远"]);
 const demoCaseTitles = new Set([
-  "杞ㄤ氦宸℃椤圭洰 7 澶╁唴琛ラ綈灞曠ず椤靛拰绛旇京鏉愭枡",
-  "瀵煎笀甯﹂槦褰㈡垚璺ㄤ笓涓氬皬闃?",
+  "数学建模校队 7 天冲刺协作样例",
+  "跨学科公益项目 Demo",
 ]);
 
 function matchKeyword(parts: Array<string | undefined>, keyword?: string) {
@@ -52,108 +54,172 @@ async function getReadClient() {
   return createServerSupabaseClient();
 }
 
-function parseMentorContactBundle(contactMode: string) {
-  const lines = contactMode
-    .split("\n")
-    .map((item) => item.trim())
-    .filter(Boolean);
-
-  const school = lines.find((item) => item.startsWith("学校："))?.replace("学校：", "") ?? "";
-  const college = lines.find((item) => item.startsWith("学院："))?.replace("学院：", "") ?? "";
-  const lab = lines.find((item) => item.startsWith("实验室："))?.replace("实验室：", "") ?? "";
-  const supportMethod = lines.find((item) => item.startsWith("支持方式："))?.replace("支持方式：", "") ?? "";
-  const contact = lines.find((item) => item.startsWith("联系方式："))?.replace("联系方式：", "") ?? contactMode;
-  const applicationNotes =
-    lines.find((item) => item.startsWith("申请说明："))?.replace("申请说明：", "") ?? "";
-
-  return { school, college, lab, supportMethod, contact, applicationNotes };
+function getMentorOrganization(parts: Array<string | null | undefined>, fallback?: string) {
+  const value = parts.filter(Boolean).join(" / ");
+  return value || fallback || "";
 }
 
-function normalizeTalent(record: Record<string, unknown>): TalentDetail {
+function normalizeLegacyTalent(record: ProfileRecord): TalentDetail {
   const achievements = Array.isArray(record.achievements) ? (record.achievements as string[]) : [];
-  const experience = String(record.experience ?? "").trim();
-  const contact = String(record.contact ?? "").trim();
+  const skills = Array.isArray(record.skill_tags) ? (record.skill_tags as string[]) : [];
+  const interestedDirections = Array.isArray(record.interested_directions)
+    ? (record.interested_directions as string[])
+    : [];
 
   return {
     id: String(record.id),
-    name: String(record.name ?? ""),
+    name: String(record.name ?? record.nickname ?? ""),
     nickname: String(record.nickname ?? ""),
     school: String(record.school ?? ""),
     major: String(record.major ?? ""),
     grade: String(record.grade ?? ""),
     bio: String(record.bio ?? ""),
-    skills: Array.isArray(record.skill_tags) ? (record.skill_tags as string[]) : [],
-    interestedDirections: Array.isArray(record.interested_directions)
-      ? (record.interested_directions as string[])
-      : [],
+    skills,
+    interestedDirections,
     timeCommitment: String(record.time_commitment ?? ""),
     avatarPath: (record.avatar_path as string | null) ?? null,
     portfolioCoverPath: (record.portfolio_cover_path as string | null) ?? null,
     portfolioExternalUrl: (record.portfolio_external_url as string | null) ?? null,
-    experience: experience || achievements.join(" / "),
+    experience: String(record.experience ?? achievements.join(" / ") ?? ""),
     achievements,
-    contact: contact || String(record.contact_hint ?? ""),
-    contactHint: String((record.contact_hint ?? contact) || "登录后可进一步联系。"),
+    contact: String(record.contact ?? ""),
+    contactHint: String(record.contact_hint ?? "登录后可进一步联系。"),
     isDemo: Boolean(record.is_demo),
   };
 }
 
-function normalizeMentor(record: Record<string, unknown>): MentorCard {
-  const bundle = parseMentorContactBundle(String(record.contact_mode ?? ""));
+function normalizeStudentProfile(
+  profile: ProfileRecord,
+  studentProfile?: StudentProfileRecord | null,
+): TalentDetail {
+  const skills = Array.isArray(studentProfile?.skills)
+    ? (studentProfile?.skills as string[])
+    : Array.isArray(profile.skill_tags)
+      ? (profile.skill_tags as string[])
+      : [];
+  const interestedDirections = studentProfile?.target_direction
+    ? String(studentProfile.target_direction)
+        .split(/[、,，]/)
+        .map((item) => item.trim())
+        .filter(Boolean)
+    : Array.isArray(profile.interested_directions)
+      ? (profile.interested_directions as string[])
+      : [];
+
   return {
-    id: String(record.id),
+    id: String(profile.id),
+    name: String(profile.nickname ?? profile.name ?? ""),
+    nickname: String(profile.nickname ?? ""),
+    school: String(studentProfile?.school ?? profile.school ?? ""),
+    major: String(studentProfile?.major ?? profile.major ?? ""),
+    grade: String(studentProfile?.grade ?? profile.grade ?? ""),
+    bio: String(studentProfile?.intro ?? profile.bio ?? ""),
+    skills,
+    interestedDirections,
+    timeCommitment: String(profile.time_commitment ?? ""),
+    avatarPath: (profile.avatar_path as string | null) ?? null,
+    portfolioCoverPath: (profile.portfolio_cover_path as string | null) ?? null,
+    portfolioExternalUrl: (studentProfile?.portfolio as string | null) ?? (profile.portfolio_external_url as string | null) ?? null,
+    experience: String(profile.experience ?? ""),
+    achievements: Array.isArray(profile.achievements) ? (profile.achievements as string[]) : [],
+    contact: String(studentProfile?.contact ?? profile.contact ?? ""),
+    contactHint: String(profile.contact_hint ?? "登录后可进一步联系。"),
+    isDemo: Boolean(profile.is_demo),
+  };
+}
+
+function parseLegacyMentorContact(contactMode?: string | null) {
+  const raw = contactMode || "";
+  const lines = raw
+    .split("\n")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  return {
+    contact: lines.find((item) => item.startsWith("联系方式："))?.replace("联系方式：", "") || raw,
+    applicationNotes:
+      lines.find((item) => item.startsWith("申请说明："))?.replace("申请说明：", "") || "",
+  };
+}
+
+function normalizeLegacyMentor(record: LegacyMentorRecord): MentorCard {
+  const bundle = parseLegacyMentorContact(String(record.contact_mode ?? ""));
+  return {
+    id: String(record.user_id ?? record.id),
     name: String(record.name ?? ""),
     organization: String(record.organization ?? ""),
     direction: String(record.direction ?? ""),
     directionTags: Array.isArray(record.direction_tags) ? (record.direction_tags as string[]) : [],
     supportScope: Array.isArray(record.support_scope) ? (record.support_scope as string[]) : [],
     avatarPath: (record.avatar_path as string | null) ?? null,
-    school: String(record.school ?? bundle.school ?? ""),
-    college: String(record.college ?? bundle.college ?? ""),
-    lab: String(record.lab ?? bundle.lab ?? ""),
-    supportMethod: String(record.support_method ?? bundle.supportMethod ?? ""),
     contactMode: bundle.contact,
-    applicationNotes: String(record.application_notes ?? bundle.applicationNotes ?? ""),
     isOpen: Boolean(record.is_open),
+    school: String(record.school ?? ""),
+    college: String(record.college ?? ""),
+    lab: String(record.lab ?? ""),
+    supportMethod: String(record.support_method ?? ""),
+    applicationNotes: bundle.applicationNotes || String(record.application_notes ?? ""),
     isDemo: Boolean(record.is_demo) || demoMentorNames.has(String(record.name ?? "")),
   };
 }
 
-function normalizeOpportunity(
-  record: Record<string, unknown>,
-  profileRecord: ProfileRecord,
-  mentorRecord: MentorRecord,
-  roleGaps: OpportunityDetail["roleGaps"],
-): OpportunityDetail {
-  const creatorName =
-    mentorRecord?.name ??
-    profileRecord?.name ??
-    record.creator_name ??
-    (mentorRecord ? "导师" : "学生发起人");
-  const creatorRole =
-    (record.creator_role as OpportunityDetail["creatorRole"] | undefined) ?? (mentorRecord ? "mentor" : "student");
-  const creatorOrganization = String(
-    record.creator_org_name ??
-      mentorRecord?.organization ??
-      profileRecord?.school ??
-      record.organization ??
-      record.school_scope ??
-      "",
-  );
-  const combinedTags = [
+function normalizeMentorProfile(
+  profile: ProfileRecord,
+  mentorProfile?: MentorProfileRecord | null,
+  legacyMentor?: LegacyMentorRecord | null,
+): MentorCard {
+  const legacy = legacyMentor ? normalizeLegacyMentor(legacyMentor) : null;
+  const school = String(mentorProfile?.school ?? legacy?.school ?? "");
+  const college = String(mentorProfile?.college ?? legacy?.college ?? "");
+  const lab = String(mentorProfile?.lab ?? legacy?.lab ?? "");
+
+  return {
+    id: String(profile.id),
+    name: String(profile.nickname ?? legacy?.name ?? ""),
+    organization: getMentorOrganization([school, college, lab], legacy?.organization),
+    direction: String(mentorProfile?.research_direction ?? legacy?.direction ?? mentorProfile?.intro ?? ""),
+    directionTags: legacy?.directionTags ?? [],
+    supportScope: Array.isArray(mentorProfile?.support_types)
+      ? (mentorProfile?.support_types as string[])
+      : (legacy?.supportScope ?? []),
+    avatarPath: (profile.avatar_path as string | null) ?? legacy?.avatarPath ?? null,
+    contactMode: String(mentorProfile?.contact ?? legacy?.contactMode ?? ""),
+    isOpen: Boolean(mentorProfile?.open_status ?? legacy?.isOpen ?? true),
+    school,
+    college,
+    lab,
+    supportMethod: String(mentorProfile?.support_method ?? legacy?.supportMethod ?? ""),
+    applicationNotes: String(mentorProfile?.application_notes ?? legacy?.applicationNotes ?? ""),
+    isDemo: Boolean(profile.is_demo) || demoMentorNames.has(String(profile.nickname ?? legacy?.name ?? "")),
+  };
+}
+
+function normalizeOpportunity(record: Record<string, unknown>, roleGaps: OpportunityDetail["roleGaps"]) {
+  const tags = [
     ...(Array.isArray(record.preset_tags) ? (record.preset_tags as string[]) : []),
     ...(Array.isArray(record.custom_tags) ? (record.custom_tags as string[]) : []),
-  ].filter(Boolean);
-  const supplementaryItems = Array.isArray(record.deliverables) ? (record.deliverables as string[]) : [];
+  ];
+  const displayTags =
+    tags.length > 0
+      ? tags
+      : Array.isArray(record.skill_tags)
+        ? (record.skill_tags as string[])
+        : [];
+
+  const supplementaryItems = Array.isArray(record.deliverables)
+    ? (record.deliverables as string[])
+    : [];
+
+  const creatorRole = (record.creator_role === "mentor" ? "mentor" : "student") as AccountRole;
 
   return {
     id: String(record.id),
     type: record.type as OpportunityDetail["type"],
     title: String(record.title ?? ""),
     summary: String(record.summary ?? ""),
-    organization: String(record.organization ?? record.school_scope ?? creatorOrganization ?? ""),
+    organization: String(record.organization ?? record.school_scope ?? record.creator_org_name ?? ""),
     deadline: String(record.deadline ?? new Date().toISOString()),
-    tags: combinedTags.length ? combinedTags : Array.isArray(record.skill_tags) ? (record.skill_tags as string[]) : [],
+    tags: displayTags,
     status:
       isBeforeToday(String(record.deadline ?? ""))
         ? "已截止"
@@ -161,27 +227,28 @@ function normalizeOpportunity(
     weeklyHours: String(record.weekly_hours ?? "每周 6-10 小时"),
     applicantCount: Number(record.applicant_count ?? 0),
     creatorId: String(record.creator_id ?? ""),
-    creatorName: String(creatorName),
+    creatorName: String(record.creator_name ?? "邻派用户"),
     creatorRole,
     creatorRoleLabel: creatorRole === "mentor" ? "导师" : "学生队长",
-    creatorOrganization,
+    creatorOrganization: String(record.creator_org_name ?? record.organization ?? ""),
     coverPath: (record.cover_path as string | null) ?? null,
     feishuUrl: (record.feishu_url as string | null) ?? null,
     createdAt: String(record.created_at ?? ""),
+    roleSummary: roleGaps.map((item) => item.roleName),
     isDemo: Boolean(record.is_demo) || String(record.title ?? "").includes("Demo"),
     progress: String(record.progress ?? ""),
-    trialTask: String(record.trial_task ?? record.application_requirement ?? ""),
-    supplementaryItems: supplementaryItems.length
-      ? supplementaryItems
-      : [
-          record.project_name ? `项目 / 比赛名称：${String(record.project_name)}` : "",
-          record.people_needed ? `需要什么人：${String(record.people_needed)}` : "",
-          record.research_direction ? `研究 / 指导方向：${String(record.research_direction)}` : "",
-          record.target_audience ? `面向对象：${String(record.target_audience)}` : "",
-          record.support_method ? `支持方式：${String(record.support_method)}` : "",
-          record.contact_info ? `联系说明：${String(record.contact_info)}` : "",
-        ].filter(Boolean),
-    roleSummary: roleGaps.map((item) => item.roleName),
+    trialTask: String(record.trial_task ?? ""),
+    supplementaryItems:
+      supplementaryItems.length > 0
+        ? supplementaryItems
+        : [
+            record.project_name ? `项目 / 比赛名称：${String(record.project_name)}` : "",
+            record.people_needed ? `需要什么人：${String(record.people_needed)}` : "",
+            record.research_direction ? `研究 / 指导方向：${String(record.research_direction)}` : "",
+            record.target_audience ? `面向对象：${String(record.target_audience)}` : "",
+            record.support_method ? `支持方式：${String(record.support_method)}` : "",
+            record.contact_info ? `联系说明：${String(record.contact_info)}` : "",
+          ].filter(Boolean),
     roleGaps,
   };
 }
@@ -253,15 +320,7 @@ export async function listOpportunities(filters: ListFilters = {}) {
     }
 
     const opportunityIds = data.map((item) => String(item.id));
-    const creatorIds = Array.from(new Set(data.map((item) => String(item.creator_id ?? "")).filter(Boolean)));
-
-    const [{ data: roles }, { data: profiles }, { data: mentors }] = await Promise.all([
-      supabase.from("opportunity_roles").select("*").in("opportunity_id", opportunityIds),
-      creatorIds.length
-        ? supabase.from("profiles").select("*").in("id", creatorIds)
-        : Promise.resolve({ data: [] }),
-      creatorIds.length ? supabase.from("mentors").select("*") : Promise.resolve({ data: [] }),
-    ]);
+    const { data: roles } = await supabase.from("opportunity_roles").select("*").in("opportunity_id", opportunityIds);
 
     const roleMap = new Map<string, OpportunityDetail["roleGaps"]>();
     roles?.forEach((role) => {
@@ -277,18 +336,8 @@ export async function listOpportunities(filters: ListFilters = {}) {
       roleMap.set(String(role.opportunity_id), current);
     });
 
-    const profileMap = new Map((profiles ?? []).map((item) => [String(item.id), item]));
-    const mentorMap = new Map(
-      (mentors ?? []).map((item) => [String((item as Record<string, unknown>).user_id ?? item.id), item]),
-    );
-
     const normalized = data.map((item) =>
-      normalizeOpportunity(
-        item as Record<string, unknown>,
-        (profileMap.get(String(item.creator_id)) as ProfileRecord) ?? null,
-        (mentorMap.get(String(item.creator_id)) as MentorRecord) ?? null,
-        roleMap.get(String(item.id)) ?? [],
-      ),
+      normalizeOpportunity(item as Record<string, unknown>, roleMap.get(String(item.id)) ?? []),
     );
 
     return filterOpportunities(normalized, filters);
@@ -309,18 +358,46 @@ export async function listTalents(filters: ListFilters = {}) {
 
   try {
     const supabase = await getReadClient();
-    const { data, error } = await supabase.from("profiles").select("*").order("updated_at", {
-      ascending: false,
-    });
+    const { data: profiles, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("role", "student")
+      .order("updated_at", { ascending: false });
 
-    if (error || !data) {
-      return filterTalents(mockTalents, filters);
+    if (error || !profiles) {
+      throw error;
     }
 
-    const normalized = data.map((item) => normalizeTalent(item as Record<string, unknown>));
+    const userIds = profiles.map((item) => String(item.id));
+    const { data: studentProfiles } = userIds.length
+      ? await supabase.from("student_profiles").select("*").in("user_id", userIds)
+      : { data: [] };
+
+    const profileMap = new Map(
+      (studentProfiles ?? []).map((item) => [String((item as StudentProfileRecord).user_id), item as StudentProfileRecord]),
+    );
+
+    const normalized = profiles.map((item) =>
+      normalizeStudentProfile(item as ProfileRecord, profileMap.get(String(item.id)) ?? null),
+    );
+
     return filterTalents(normalized, filters);
   } catch {
-    return filterTalents(mockTalents, filters);
+    try {
+      const supabase = await getReadClient();
+      const { data, error } = await supabase.from("profiles").select("*").order("updated_at", {
+        ascending: false,
+      });
+
+      if (error || !data) {
+        return filterTalents(mockTalents, filters);
+      }
+
+      const normalized = data.map((item) => normalizeLegacyTalent(item as ProfileRecord));
+      return filterTalents(normalized, filters);
+    } catch {
+      return filterTalents(mockTalents, filters);
+    }
   }
 }
 
@@ -336,18 +413,57 @@ export async function listMentors(filters: ListFilters = {}) {
 
   try {
     const supabase = await getReadClient();
-    const { data, error } = await supabase.from("mentors").select("*").order("created_at", {
-      ascending: false,
-    });
+    const { data: profiles, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("role", "mentor")
+      .order("updated_at", { ascending: false });
 
-    if (error || !data) {
-      return filterMentors(mockMentors, filters);
+    if (error || !profiles) {
+      throw error;
     }
 
-    const normalized = data.map((item) => normalizeMentor(item as Record<string, unknown>)) satisfies MentorCard[];
+    const userIds = profiles.map((item) => String(item.id));
+    const [{ data: mentorProfiles }, { data: legacyMentors }] = await Promise.all([
+      userIds.length ? supabase.from("mentor_profiles").select("*").in("user_id", userIds) : Promise.resolve({ data: [] }),
+      userIds.length ? supabase.from("mentors").select("*") : Promise.resolve({ data: [] }),
+    ]);
+
+    const mentorProfileMap = new Map(
+      (mentorProfiles ?? []).map((item) => [String((item as MentorProfileRecord).user_id), item as MentorProfileRecord]),
+    );
+    const legacyMentorMap = new Map(
+      (legacyMentors ?? []).map((item) => [
+        String((item as LegacyMentorRecord).user_id ?? (item as LegacyMentorRecord).id),
+        item as LegacyMentorRecord,
+      ]),
+    );
+
+    const normalized = profiles.map((item) =>
+      normalizeMentorProfile(
+        item as ProfileRecord,
+        mentorProfileMap.get(String(item.id)) ?? null,
+        legacyMentorMap.get(String(item.id)) ?? null,
+      ),
+    );
+
     return filterMentors(normalized, filters);
   } catch {
-    return filterMentors(mockMentors, filters);
+    try {
+      const supabase = await getReadClient();
+      const { data, error } = await supabase.from("mentors").select("*").order("created_at", {
+        ascending: false,
+      });
+
+      if (error || !data) {
+        return filterMentors(mockMentors, filters);
+      }
+
+      const normalized = data.map((item) => normalizeLegacyMentor(item as LegacyMentorRecord));
+      return filterMentors(normalized, filters);
+    } catch {
+      return filterMentors(mockMentors, filters);
+    }
   }
 }
 
@@ -398,10 +514,24 @@ export async function getStudentProfileByUserId(userId: string) {
 
   try {
     const supabase = await getReadClient();
-    const { data } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
-    return data ? normalizeTalent(data as Record<string, unknown>) : null;
+    const [{ data: profile }, { data: studentProfile }] = await Promise.all([
+      supabase.from("profiles").select("*").eq("id", userId).maybeSingle(),
+      supabase.from("student_profiles").select("*").eq("user_id", userId).maybeSingle(),
+    ]);
+
+    if (!profile) {
+      return null;
+    }
+
+    return normalizeStudentProfile(profile as ProfileRecord, (studentProfile as StudentProfileRecord | null) ?? null);
   } catch {
-    return null;
+    try {
+      const supabase = await getReadClient();
+      const { data } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
+      return data ? normalizeLegacyTalent(data as ProfileRecord) : null;
+    } catch {
+      return null;
+    }
   }
 }
 
@@ -412,15 +542,34 @@ export async function getMentorProfileByUserId(userId: string) {
 
   try {
     const supabase = await getReadClient();
-    let result = await supabase.from("mentors").select("*").eq("user_id", userId).maybeSingle();
+    const [{ data: profile }, { data: mentorProfile }, { data: legacyMentor }] = await Promise.all([
+      supabase.from("profiles").select("*").eq("id", userId).maybeSingle(),
+      supabase.from("mentor_profiles").select("*").eq("user_id", userId).maybeSingle(),
+      supabase.from("mentors").select("*").eq("user_id", userId).maybeSingle(),
+    ]);
 
-    if (result.error) {
-      result = await supabase.from("mentors").select("*").eq("id", userId).maybeSingle();
+    if (!profile) {
+      return null;
     }
 
-    return result.data ? normalizeMentor(result.data as Record<string, unknown>) : null;
+    return normalizeMentorProfile(
+      profile as ProfileRecord,
+      (mentorProfile as MentorProfileRecord | null) ?? null,
+      (legacyMentor as LegacyMentorRecord | null) ?? null,
+    );
   } catch {
-    return null;
+    try {
+      const supabase = await getReadClient();
+      let result = await supabase.from("mentors").select("*").eq("user_id", userId).maybeSingle();
+
+      if (result.error) {
+        result = await supabase.from("mentors").select("*").eq("id", userId).maybeSingle();
+      }
+
+      return result.data ? normalizeLegacyMentor(result.data as LegacyMentorRecord) : null;
+    } catch {
+      return null;
+    }
   }
 }
 
@@ -436,7 +585,7 @@ export async function getPersonalShowcase(userId: string, role: AccountRole): Pr
       role,
       title: profile.name,
       subtitle: [profile.school, profile.major, profile.grade].filter(Boolean).join(" · "),
-      summary: profile.bio || "先把基础资料挂出来，后续再继续补充项目和作品。",
+      summary: profile.bio || "先把基础资料挂出来，后面再慢慢补作品和项目经历。",
       tags: profile.skills,
       ctaLabel: "编辑学生资料",
       editPath: "/profile/student",
@@ -460,7 +609,7 @@ export async function getPersonalShowcase(userId: string, role: AccountRole): Pr
     role,
     title: mentor.name,
     subtitle: [mentor.school, mentor.college, mentor.lab].filter(Boolean).join(" · ") || mentor.organization,
-    summary: mentor.direction || "先把研究方向和支持方式挂出来，后续再继续补充。",
+    summary: mentor.direction || "先把研究方向和支持方式挂出来，后面再继续补充。",
     tags: mentor.directionTags,
     ctaLabel: "编辑导师资料",
     editPath: "/profile/mentor",
@@ -485,16 +634,7 @@ export async function getDashboardSnapshot(userId?: string | null, role?: Accoun
 
   try {
     const supabase = await getReadClient();
-    const mentorProfilePromise = async () => {
-      let result = await supabase.from("mentors").select("*").eq("user_id", userId).maybeSingle();
-      if (result.error) {
-        result = await supabase.from("mentors").select("*").eq("id", userId).maybeSingle();
-      }
-      return result;
-    };
-
-    const [profile, applications, opportunities] = await Promise.all([
-      role === "mentor" ? mentorProfilePromise() : supabase.from("profiles").select("*").eq("id", userId).maybeSingle(),
+    const [applications, opportunities, profile] = await Promise.all([
       supabase
         .from("applications")
         .select("id, status, created_at, opportunity_title")
@@ -505,20 +645,14 @@ export async function getDashboardSnapshot(userId?: string | null, role?: Accoun
         .select("*")
         .eq("creator_id", userId)
         .order("created_at", { ascending: false }),
+      role === "mentor" ? getMentorProfileByUserId(userId) : getStudentProfileByUserId(userId),
     ]);
 
     const detailedOpportunities = await listOpportunities();
     const ownOpportunityMap = new Map(detailedOpportunities.map((item) => [item.id, item]));
 
     return {
-      profile:
-        role === "mentor"
-          ? profile.data
-            ? normalizeMentor(profile.data as Record<string, unknown>)
-            : null
-          : profile.data
-            ? normalizeTalent(profile.data as Record<string, unknown>)
-            : null,
+      profile,
       applications:
         applications.data?.map((item) => ({
           id: String(item.id),

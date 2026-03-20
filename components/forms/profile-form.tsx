@@ -120,7 +120,7 @@ export function ProfileForm({ profile }: { profile?: TalentDetail | null }) {
             value={values.name}
             onChange={(event) => setValue("name", event.target.value)}
             className="field-base"
-            placeholder="怎么称呼你"
+            placeholder="别人怎么称呼你"
           />
           <FieldError message={fieldErrors.name} />
         </label>
@@ -301,7 +301,7 @@ export function ProfileForm({ profile }: { profile?: TalentDetail | null }) {
         <ImageUploadInput
           name="portfolioCover"
           label="作品封面"
-          helper="可选，用于展示你的能力卡。"
+          helper="可选，用于丰富你的资料展示。"
           previewUrl={profile?.portfolioCoverPath}
         />
       </div>

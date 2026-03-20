@@ -2,6 +2,8 @@ create extension if not exists "pgcrypto";
 
 create table if not exists public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
+  role text check (role in ('student', 'mentor')),
+  profile_completed boolean not null default false,
   name text not null,
   nickname text,
   school text,
@@ -18,6 +20,36 @@ create table if not exists public.profiles (
   experience text,
   contact text,
   contact_hint text default '登录后可进一步联系。',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.student_profiles (
+  user_id uuid primary key references auth.users (id) on delete cascade,
+  school text,
+  major text,
+  grade text,
+  skills text[] not null default '{}',
+  intro text,
+  portfolio text,
+  target_direction text,
+  contact text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.mentor_profiles (
+  user_id uuid primary key references auth.users (id) on delete cascade,
+  school text,
+  college text,
+  lab text,
+  research_direction text,
+  support_types text[] not null default '{}',
+  support_method text,
+  open_status boolean not null default true,
+  intro text,
+  contact text,
+  application_notes text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -119,11 +151,16 @@ create table if not exists public.cases (
   created_at timestamptz not null default now()
 );
 
+create index if not exists idx_profiles_role on public.profiles (role);
+create index if not exists idx_student_profiles_user_id on public.student_profiles (user_id);
+create index if not exists idx_mentor_profiles_user_id on public.mentor_profiles (user_id);
 create index if not exists idx_opportunities_creator_id on public.opportunities (creator_id);
 create index if not exists idx_opportunities_creator_role on public.opportunities (creator_role);
 create index if not exists idx_mentors_user_id on public.mentors (user_id);
 
 alter table public.profiles enable row level security;
+alter table public.student_profiles enable row level security;
+alter table public.mentor_profiles enable row level security;
 alter table public.opportunities enable row level security;
 alter table public.opportunity_roles enable row level security;
 alter table public.applications enable row level security;
@@ -140,6 +177,28 @@ on public.profiles
 for all
 using (auth.uid() = id)
 with check (auth.uid() = id);
+
+drop policy if exists "public can read student profiles" on public.student_profiles;
+create policy "public can read student profiles"
+on public.student_profiles for select using (true);
+
+drop policy if exists "users manage own student profile" on public.student_profiles;
+create policy "users manage own student profile"
+on public.student_profiles
+for all
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+
+drop policy if exists "public can read mentor profiles" on public.mentor_profiles;
+create policy "public can read mentor profiles"
+on public.mentor_profiles for select using (true);
+
+drop policy if exists "users manage own mentor profiles" on public.mentor_profiles;
+create policy "users manage own mentor profiles"
+on public.mentor_profiles
+for all
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
 
 drop policy if exists "public can read opportunities" on public.opportunities;
 create policy "public can read opportunities"

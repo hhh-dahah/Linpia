@@ -1,22 +1,21 @@
-# Match Campus
+# 邻派 Linpai
 
-Match Campus 是一个面向校园协作场景的平台，核心入口只有 3 个：
+邻派是一个面向校园协作与招募场景的平台，主要入口是：
 
-- 找机会
-- 发布机会
-- 展示技能
+- 首页
+- 找队伍
+- 发招募
+- 人才池
+- 个人资料
 
-适合学生、队长、项目发起人、导师使用。学生可以找项目、展示自己，队长和导师可以发布招募、快速连接到合适的人。
+当前认证方式已经改成：
 
-## 技术栈
+- 邮箱 + 密码登录
+- 默认保持登录状态
+- 邮件只用于注册确认、忘记密码、修改邮箱和安全通知
+- 注册确认采用邮箱验证码，不再用确认链接作为主方式
 
-- Next.js 16 App Router
-- TypeScript
-- Tailwind CSS 4
-- Supabase
-- Vercel
-
-## 本地开发
+## 本地启动
 
 1. 安装依赖
 
@@ -36,6 +35,7 @@ copy .env.example .env.local
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 NEXT_PUBLIC_SUPABASE_URL=你的 Supabase Project URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY=你的 Supabase Anon Key
+NEXT_PUBLIC_AUTH_REQUIRE_EMAIL_CONFIRMATION=true
 SUPABASE_SERVICE_ROLE_KEY=你的 Supabase Service Role Key
 ADMIN_EMAILS=1563664654@qq.com
 ```
@@ -50,100 +50,98 @@ pnpm dev
 
 ```bash
 pnpm lint
+pnpm exec tsc --noEmit
 pnpm build
 ```
-
-## 当前功能
-
-- 首页首屏 3 个核心入口
-- 机会列表和详情页
-- 人才列表和详情页
-- 导师页和案例页
-- 邮箱登录入口
-- 个人资料填写和管理
-- 发布机会
-- 报名机会
-- 管理员录入导师和案例
-- 未配置 Supabase 时自动回退到 Mock 演示模式
 
 ## Supabase 数据库初始化
 
 按下面顺序执行：
 
-1. 在 Supabase 项目中打开 SQL Editor
-2. 执行 [schema.sql](D:/桌面/网站文件/match-campus/supabase/schema.sql)
-3. 如果需要演示数据，再执行 [seed.sql](D:/桌面/网站文件/match-campus/supabase/seed.sql)
-4. 在 Storage 中确认 3 个 bucket 已创建：
+1. 打开 Supabase 项目里的 `SQL Editor`
+2. 先执行 [`supabase/schema.sql`](D:/桌面/网站文件/match-campus/supabase/schema.sql)
+3. 如果是从旧版库升级，按顺序再执行：
+   - [`supabase/migrations/20260317_role_recruitment_upgrade.sql`](D:/桌面/网站文件/match-campus/supabase/migrations/20260317_role_recruitment_upgrade.sql)
+   - [`supabase/migrations/20260320_auth_password_profiles.sql`](D:/桌面/网站文件/match-campus/supabase/migrations/20260320_auth_password_profiles.sql)
+4. 如果需要演示数据，再执行 [`supabase/seed.sql`](D:/桌面/网站文件/match-campus/supabase/seed.sql)
 
-- `avatars`
-- `portfolio-covers`
-- `opportunity-covers`
+## Supabase Auth 后台配置
 
-## Vercel 部署
+### 1. Email Provider
 
-Vercel 需要配置与本地一致的环境变量：
+在 `Authentication > Providers > Email` 中确认：
 
-- `NEXT_PUBLIC_APP_URL`
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY`
-- `ADMIN_EMAILS`
+- `Email` 已开启
+- `Password sign-in` 已开启
 
-建议线上 `NEXT_PUBLIC_APP_URL` 填你的 Vercel 正式域名，例如：
+### 2. Confirm Email
+
+当前前端默认按“开启邮箱确认”兼容：
+
+- 正式阶段建议保持开启
+- 如果是内测阶段，想减少摩擦，可以关闭
+
+如果你关闭确认，请把环境变量改成：
 
 ```env
-NEXT_PUBLIC_APP_URL=https://your-project.vercel.app
+NEXT_PUBLIC_AUTH_REQUIRE_EMAIL_CONFIRMATION=false
 ```
 
-Supabase Auth 里还需要补充回调地址：
+### 3. Redirect URLs
 
+在 `Authentication > URL Configuration` 中至少补齐：
+
+- `http://localhost:3000`
+- `https://linpia.vercel.app`
 - `http://localhost:3000/auth/callback`
-- `https://your-project.vercel.app/auth/callback`
+- `https://linpia.vercel.app/auth/callback`
+- `http://localhost:3000/reset-password`
+- `https://linpia.vercel.app/reset-password`
 
-## GitHub 推送建议流程
+### 4. SMTP
 
-项目当前还没有首个提交，也还没有远程仓库。标准流程如下：
+在 `Authentication > SMTP Settings` 中接入阿里云邮件：
 
-```bash
-git add .
-git commit -m "feat: initialize match campus"
-git remote add origin <你的 GitHub 仓库地址>
-git push -u origin master
-```
+- SMTP host
+- SMTP port
+- SMTP user
+- SMTP password
+- sender email
+- sender name
 
-如果你准备改成 `main` 分支，也可以这样：
+### 5. Email Templates
 
-```bash
-git branch -M main
-git push -u origin main
-```
+建议把模板中的品牌统一成：
 
-## 需要的安全凭证
+- `Linpai`
+- `邻派`
 
-为了帮你完成真实的 GitHub 推送、Supabase 连接和 Vercel 部署，我还需要你以更安全的方式提供下面这些信息，而不是直接提供账号密码：
+并保持文案简洁，重点覆盖：
 
-- GitHub Personal Access Token
-- Vercel Token
-- Supabase Project URL
-- Supabase Anon Key
-- Supabase Service Role Key
-- GitHub 仓库地址
+- 注册确认
+- 重置密码
+- 修改邮箱
 
-你可以通过环境变量提供，例如：
+其中注册确认建议改成“邮箱验证码”样式：
 
-```powershell
-$env:GITHUB_TOKEN="你的 GitHub PAT"
-$env:VERCEL_TOKEN="你的 Vercel Token"
-$env:SUPABASE_URL="你的 Supabase URL"
-$env:SUPABASE_ANON_KEY="你的 Supabase Anon Key"
-$env:SUPABASE_SERVICE_ROLE_KEY="你的 Supabase Service Role Key"
-$env:GITHUB_REPO_URL="https://github.com/<user>/<repo>.git"
-```
+- `Confirm sign up` 模板里展示 `{{ .Token }}`
+- 不要把注册确认主模板写成 `{{ .ConfirmationURL }}` 按钮
 
-等这些变量准备好后，我就可以继续帮你：
+重置密码仍然建议保留链接方式：
 
-- 创建首个 Git 提交
-- 连接 GitHub 远程并推送
-- 写入本地 `.env.local`
-- 绑定 Supabase
-- 通过 Vercel CLI 完成部署
+- `Reset password` 模板继续使用 `{{ .ConfirmationURL }}`
+
+## 会话与页面流转
+
+当前登录后的流程是：
+
+1. 先登录
+2. 没选身份就去身份选择页
+3. 资料没完成就去对应资料页
+4. 身份和资料都完成后，自动回到原操作页
+
+例如：
+
+- 点“发布招募”未登录 -> 登录 -> 选身份 -> 补资料 -> 回到发布招募
+- 点“个人资料”未登录 -> 登录 -> 选身份 -> 补资料 -> 回到个人资料
+- 点“立即报名”未登录 -> 登录 -> 回到原详情页继续报名

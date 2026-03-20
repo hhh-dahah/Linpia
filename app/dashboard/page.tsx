@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { FormShell } from "@/components/ui/form-shell";
-import { getAccountRole, getCurrentUser, isAdminEmail } from "@/lib/auth";
+import { getCurrentAccountRole, getCurrentUser, isAdminEmail } from "@/lib/auth";
 import { getDashboardSnapshot } from "@/lib/data";
 import { formatDate } from "@/lib/utils";
 
@@ -26,7 +26,7 @@ export default async function DashboardPage() {
     );
   }
 
-  const role = getAccountRole(user);
+  const role = await getCurrentAccountRole(user);
   const snapshot = await getDashboardSnapshot(user.id, role);
   const displayName =
     snapshot.profile && "name" in snapshot.profile ? snapshot.profile.name : user.email || "邻派用户";
@@ -35,12 +35,12 @@ export default async function DashboardPage() {
     <FormShell
       eyebrow="我的发布管理"
       title={`欢迎回来，${displayName}`}
-      description="这里统一管理你的资料、报名记录和已发布招募。导航按动作组织，但后台信息会根据身份自动区分。"
+      description="这里统一管理你的资料、报名记录和已发布招募。前台入口按动作组织，但后台信息会根据身份自动区分。"
       asideTitle="你可以在这里做什么"
-      asideDescription="无论你是学生还是导师，都用同一个管理页查看自己的动作记录。"
+      asideDescription="无论你是学生还是导师，都用同一个管理页查看自己的记录。"
       tips={[
-        role === "mentor" ? "导师资料建议先补研究方向和支持方式。" : "学生资料建议先补方向、经历和联系方式。",
-        "发布招募和报名记录会统一沉淀到这里。",
+        role === "mentor" ? "建议先把研究方向和支持方式补完整。" : "建议先把方向、经历和联系方式补完整。",
+        "发布招募和报名记录都会统一沉淀到这里。",
         "如果你是管理员，这里也能继续进入后台录入。",
       ]}
     >
@@ -48,7 +48,7 @@ export default async function DashboardPage() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-2xl font-bold text-[var(--foreground)]">快捷入口</h2>
-            <p className="mt-1 text-sm text-[var(--muted)]">继续完善资料、发布招募或查看你当前的申请记录。</p>
+            <p className="mt-1 text-sm text-[var(--muted)]">继续完善资料、发布招募，或者查看你当前的申请记录。</p>
           </div>
           <div className="flex flex-wrap gap-3">
             <Link href="/profile" className="ui-button-secondary px-4 py-2 text-sm font-semibold">

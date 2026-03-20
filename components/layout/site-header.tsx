@@ -2,12 +2,13 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { logoutAction } from "@/app/actions";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, getDisplayIdentity } from "@/lib/auth";
 
 import { SiteNav } from "./site-nav";
 
 export async function SiteHeader() {
   const user = await getCurrentUser();
+  const identity = user ? await getDisplayIdentity(user) : null;
 
   return (
     <header className="sticky top-0 z-40 border-b border-[var(--line)] bg-[rgba(255,255,255,0.72)] backdrop-blur-2xl">
@@ -34,8 +35,8 @@ export async function SiteHeader() {
           <div className="flex items-center gap-2 self-start md:self-auto">
             {user ? (
               <>
-                <Link href="/dashboard" className="ui-button-secondary px-4 py-2 text-sm font-semibold">
-                  我的发布
+                <Link href="/profile" className="ui-button-secondary px-4 py-2 text-sm font-semibold">
+                  {identity?.nickname ? `${identity.nickname}` : "个人资料"}
                 </Link>
                 <Link
                   href="/publish"

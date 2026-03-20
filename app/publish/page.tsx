@@ -22,18 +22,18 @@ export default async function PublishPage({ searchParams }: PublishPageProps) {
   return (
     <FormShell
       eyebrow="发招募"
-      title={flow.role === "student" ? "清楚发出你想要找的人" : "把你愿意开放的指导和合作机会发出来"}
+      title={flow.role === "student" ? "清楚发出你想要找的人" : "把你愿意开放的合作机会发出来"}
       description={
         flow.role === "student"
           ? "适用于比赛组队、项目招人、找队友和短期合作。"
-          : "如果你想带队、开放课题合作，或者愿意给学生一些方向和支持，可以先把这次开放的机会发出来。"
+          : "适用于带队招募、课题合作、指导支持和实验室开放机会。"
       }
-      asideTitle="写的时候可以这样想"
-      asideDescription="不用一下子写得很正式，把这次想找谁、一起做什么、什么时候方便对上，先说清楚就够了。"
+      asideTitle="填写时可以这样想"
+      asideDescription="先把这次想找谁、一起做什么、什么时间适合对上说清楚，不用一开始就写得很复杂。"
       tips={[
-        "标题先让人一眼看懂你在招什么，后面的细节再慢慢补充。",
-        "角色说明尽量贴近真实合作场景，这样别人更容易判断自己适不适合。",
-        "标签先选最贴近的几个，后面如果有新方向也可以再补。",
+        "标题先让人一眼看懂你在招什么。",
+        "角色说明尽量贴近真实合作场景。",
+        "标签先选最贴近的几个，后面还可以再补。",
       ]}
     >
       <PublishForm role={flow.role} />

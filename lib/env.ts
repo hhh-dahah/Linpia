@@ -2,6 +2,7 @@ const publicEnv = {
   supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
   supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
   appUrl: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+  requireEmailConfirmation: process.env.NEXT_PUBLIC_AUTH_REQUIRE_EMAIL_CONFIRMATION ?? "true",
 };
 
 export function hasSupabaseEnv() {
@@ -33,6 +34,10 @@ export function getServiceRoleKey() {
 
 export function getAppUrl() {
   return publicEnv.appUrl;
+}
+
+export function isEmailConfirmationRequired() {
+  return publicEnv.requireEmailConfirmation !== "false";
 }
 
 export function getAdminEmails() {

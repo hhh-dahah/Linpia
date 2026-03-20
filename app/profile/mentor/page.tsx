@@ -31,11 +31,15 @@ export default async function MentorProfilePage({ searchParams }: MentorProfileP
   return (
     <FormShell
       eyebrow="导师资料"
-      title="把研究方向、支持方式和开放状态整理清楚"
-      description="导师入驻不再只是展示页静态录入，而是可以通过统一身份体系完成资料完善、展示和发布招募。"
+      title="把你的研究方向和支持方式整理清楚"
+      description="导师入驻不只是展示姓名，而是把你愿意开放的支持方式、研究方向和申请方式说明白，方便学生快速判断是否适合联系你。"
       asideTitle="这页会影响什么"
-      asideDescription="导师资料完整后，可以展示个人方向，也能进入统一的发招募入口发布带队或支持需求。"
-      tips={["学校 / 学院 / 实验室优先写最容易识别的组织信息。", "研究方向和支持方式比“大而空”的简介更重要。", "如果暂时不开放申请，也建议先把资料建起来。"]}
+      asideDescription="导师资料保存后，你就能完整展示自己的方向，也能继续通过统一入口发布带队或合作招募。"
+      tips={[
+        "学校 / 学院 / 实验室优先写最容易识别的信息。",
+        "研究方向和支持方式比泛泛的介绍更重要。",
+        "就算暂时不开放申请，也建议先把资料建立起来。",
+      ]}
     >
       <MentorProfileForm profile={profile} />
     </FormShell>

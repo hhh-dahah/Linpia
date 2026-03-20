@@ -69,7 +69,7 @@ export function RoleSelectForm({ nextPath }: { nextPath: string }) {
           </div>
           <h2 className="mt-4 text-xl font-bold text-[var(--foreground)]">我是导师</h2>
           <p className="mt-2 text-sm leading-7 text-[var(--muted)]">
-            用于展示研究方向、开放指导支持，并通过同一个招募入口发布带队或合作需求。
+            用于展示研究方向、支持方式，也可以通过同一个入口发布带队或合作招募。
           </p>
         </button>
       </div>
