@@ -160,10 +160,29 @@ export async function saveRoleAction(_: ActionState, formData: FormData): Promis
 
   try {
     const client = await getWriteClient();
+    const fallbackName =
+      user.user_metadata?.nickname ||
+      user.user_metadata?.name ||
+      user.user_metadata?.full_name ||
+      user.email?.split("@")[0] ||
+      "邻派用户";
+
+    const { data: existingProfile } = await client
+      .from("profiles")
+      .select("name, nickname")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    const displayName =
+      existingProfile?.name ||
+      existingProfile?.nickname ||
+      (typeof fallbackName === "string" ? fallbackName : "邻派用户");
+
     const { error } = await client.from("profiles").upsert({
       id: user.id,
       role,
-      nickname: user.email?.split("@")[0] || null,
+      name: displayName,
+      nickname: existingProfile?.nickname || displayName,
       profile_completed: false,
       updated_at: new Date().toISOString(),
     });
