@@ -77,21 +77,21 @@ insert into public.mentor_profiles (
   application_notes
 )
 select
-  coalesce(user_id, id),
-  school,
-  college,
-  lab,
-  direction,
-  coalesce(support_scope, '{}'),
-  support_method,
-  coalesce(is_open, true),
-  direction,
-  contact_mode,
-  application_notes
+  coalesce(public.mentors.user_id, public.mentors.id),
+  public.mentors.school,
+  public.mentors.college,
+  public.mentors.lab,
+  public.mentors.direction,
+  coalesce(public.mentors.support_scope, '{}'),
+  public.mentors.support_method,
+  coalesce(public.mentors.is_open, true),
+  public.mentors.direction,
+  public.mentors.contact_mode,
+  public.mentors.application_notes
 from public.mentors
 inner join auth.users
   on auth.users.id = coalesce(public.mentors.user_id, public.mentors.id)
-where coalesce(user_id, id) is not null
+where coalesce(public.mentors.user_id, public.mentors.id) is not null
   and not exists (
     select 1
     from public.mentor_profiles
