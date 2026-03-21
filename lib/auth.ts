@@ -2,8 +2,7 @@ import type { User } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 
 import type { AccountRole, DisplayIdentity, UserFlowStatus } from "@/types/account";
-import { getAdminEmails, hasServiceRoleEnv, hasSupabaseEnv } from "@/lib/env";
-import { createAdminSupabaseClient } from "@/supabase/admin";
+import { getAdminEmails, hasSupabaseEnv } from "@/lib/env";
 import { createServerSupabaseClient } from "@/supabase/server";
 
 type ProfileRow = {
@@ -72,10 +71,6 @@ function getEmailName(email?: string | null) {
 }
 
 async function getReadClient() {
-  if (hasServiceRoleEnv()) {
-    return createAdminSupabaseClient();
-  }
-
   return createServerSupabaseClient();
 }
 

@@ -5,16 +5,17 @@ import {
   mockOpportunities,
   mockTalents,
 } from "@/mock/seed";
+import { unstable_cache } from "next/cache";
 import type { DashboardApplication } from "@/types/application";
 import type { AccountRole } from "@/types/account";
 import type { CaseCard } from "@/types/case";
 import type { MentorCard } from "@/types/mentor";
 import type { OpportunityDetail } from "@/types/opportunity";
 import type { PersonalShowcase, TalentDetail } from "@/types/profile";
-import { createAdminSupabaseClient } from "@/supabase/admin";
+import { createPublicSupabaseClient } from "@/supabase/public";
 import { createServerSupabaseClient } from "@/supabase/server";
 
-import { hasServiceRoleEnv, hasSupabaseEnv } from "./env";
+import { hasSupabaseEnv } from "./env";
 import { isBeforeToday } from "./utils";
 
 type ListFilters = {
@@ -24,10 +25,33 @@ type ListFilters = {
   skill?: string;
 };
 
+type ListOptions = {
+  limit?: number;
+};
+
+type TalentPoolOptions = {
+  studentLimit?: number;
+  mentorLimit?: number;
+};
+
 type ProfileRecord = Record<string, unknown>;
 type StudentProfileRecord = Record<string, unknown>;
 type MentorProfileRecord = Record<string, unknown>;
 type LegacyMentorRecord = Record<string, unknown>;
+
+const DEFAULT_OPPORTUNITY_LIMIT = 24;
+const DEFAULT_TALENT_LIMIT = 12;
+const DEFAULT_MENTOR_LIMIT = 12;
+const DASHBOARD_OPPORTUNITY_LIMIT = 10;
+const DASHBOARD_APPLICATION_LIMIT = 20;
+
+const OPPORTUNITY_SELECT =
+  "id, type, title, summary, organization, school_scope, deadline, creator_id, creator_name, creator_role, creator_org_name, contact_info, cover_path, feishu_url, status, weekly_hours, progress, trial_task, skill_tags, preset_tags, custom_tags, deliverables, project_name, people_needed, research_direction, target_audience, support_method, applicant_count, created_at";
+const PROFILE_SELECT =
+  "id, role, name, nickname, school, major, grade, bio, avatar_path, portfolio_cover_path, portfolio_external_url, time_commitment, skill_tags, interested_directions, achievements, experience, contact, contact_hint, is_demo, updated_at";
+const STUDENT_PROFILE_SELECT = "user_id, school, major, grade, skills, intro, portfolio, target_direction, contact";
+const MENTOR_PROFILE_SELECT =
+  "user_id, school, college, lab, research_direction, support_types, support_method, open_status, intro, contact, application_notes";
 
 const demoMentorNames = new Set(["王海峰", "刘明远"]);
 const demoCaseTitles = new Set([
@@ -47,11 +71,54 @@ function matchKeyword(parts: Array<string | undefined>, keyword?: string) {
 }
 
 async function getReadClient() {
-  if (hasServiceRoleEnv()) {
-    return createAdminSupabaseClient();
-  }
-
   return createServerSupabaseClient();
+}
+
+function getPublicReadClient() {
+  return createPublicSupabaseClient();
+}
+
+function normalizeFilterValue(value?: string) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : "";
+}
+
+function buildSearchPattern(value?: string) {
+  const normalized = normalizeFilterValue(value).replace(/[(),]/g, " ");
+  return normalized ? `%${normalized}%` : "";
+}
+
+function buildArrayContainsFilter(value?: string) {
+  const normalized = normalizeFilterValue(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  return normalized ? `{"${normalized}"}` : "";
+}
+
+function serializeFilters(filters: ListFilters) {
+  return {
+    query: normalizeFilterValue(filters.query),
+    type: normalizeFilterValue(filters.type),
+    school: normalizeFilterValue(filters.school),
+    skill: normalizeFilterValue(filters.skill),
+  };
+}
+
+function buildRoleMap(roleRows?: Array<Record<string, unknown>> | null) {
+  const roleMap = new Map<string, OpportunityDetail["roleGaps"]>();
+
+  roleRows?.forEach((role) => {
+    const current = roleMap.get(String(role.opportunity_id)) ?? [];
+    current.push({
+      id: String(role.id),
+      roleName: String(role.role_name),
+      responsibility: String(role.responsibility),
+      requirements: String(role.requirements),
+      headcount: Number(role.headcount),
+      weeklyHours: String(role.weekly_hours),
+    });
+    roleMap.set(String(role.opportunity_id), current);
+  });
+
+  return roleMap;
 }
 
 function getMentorOrganization(parts: Array<string | null | undefined>, fallback?: string) {
@@ -304,193 +371,159 @@ function filterMentors(items: MentorCard[], filters: ListFilters) {
   });
 }
 
-export async function listOpportunities(filters: ListFilters = {}) {
-  if (!hasSupabaseEnv()) {
-    return filterOpportunities(mockOpportunities, filters);
-  }
+const getCachedOpportunities = unstable_cache(
+  async (query: string, type: string, school: string, skill: string, limit: number) => {
+    const supabase = getPublicReadClient();
+    let request = supabase
+      .from("opportunities")
+      .select(OPPORTUNITY_SELECT)
+      .order("created_at", { ascending: false })
+      .limit(limit);
 
-  try {
-    const supabase = await getReadClient();
-    const { data, error } = await supabase.from("opportunities").select("*").order("created_at", {
-      ascending: false,
-    });
+    if (type) {
+      request = request.eq("type", type);
+    }
 
+    if (query) {
+      const pattern = buildSearchPattern(query);
+      request = request.or(
+        `title.ilike.${pattern},summary.ilike.${pattern},creator_name.ilike.${pattern},organization.ilike.${pattern},creator_org_name.ilike.${pattern}`,
+      );
+    }
+
+    if (school) {
+      const pattern = buildSearchPattern(school);
+      request = request.or(
+        `organization.ilike.${pattern},creator_org_name.ilike.${pattern},school_scope.ilike.${pattern}`,
+      );
+    }
+
+    if (skill) {
+      const arrayContains = buildArrayContainsFilter(skill);
+      request = request.or(
+        `preset_tags.cs.${arrayContains},custom_tags.cs.${arrayContains},skill_tags.cs.${arrayContains}`,
+      );
+    }
+
+    const { data, error } = await request;
     if (error || !data) {
-      return filterOpportunities(mockOpportunities, filters);
+      throw error ?? new Error("Failed to load opportunities");
     }
 
     const opportunityIds = data.map((item) => String(item.id));
-    const { data: roles } = await supabase.from("opportunity_roles").select("*").in("opportunity_id", opportunityIds);
+    const { data: roleRows, error: rolesError } = opportunityIds.length
+      ? await supabase.from("opportunity_roles").select("*").in("opportunity_id", opportunityIds)
+      : { data: [], error: null };
 
-    const roleMap = new Map<string, OpportunityDetail["roleGaps"]>();
-    roles?.forEach((role) => {
-      const current = roleMap.get(String(role.opportunity_id)) ?? [];
-      current.push({
-        id: String(role.id),
-        roleName: String(role.role_name),
-        responsibility: String(role.responsibility),
-        requirements: String(role.requirements),
-        headcount: Number(role.headcount),
-        weeklyHours: String(role.weekly_hours),
-      });
-      roleMap.set(String(role.opportunity_id), current);
-    });
+    if (rolesError) {
+      throw rolesError;
+    }
 
-    const normalized = data.map((item) =>
-      normalizeOpportunity(item as Record<string, unknown>, roleMap.get(String(item.id)) ?? []),
-    );
+    const roleMap = buildRoleMap(roleRows as Array<Record<string, unknown>> | null);
+    return data.map((item) => normalizeOpportunity(item as Record<string, unknown>, roleMap.get(String(item.id)) ?? []));
+  },
+  ["public-opportunities"],
+  { revalidate: 30, tags: ["opportunities"] },
+);
 
-    return filterOpportunities(normalized, filters);
-  } catch {
-    return filterOpportunities(mockOpportunities, filters);
-  }
-}
-
-export async function getOpportunityById(id: string) {
-  const opportunities = await listOpportunities();
-  return opportunities.find((item) => item.id === id) ?? null;
-}
-
-export async function listTalents(filters: ListFilters = {}) {
-  if (!hasSupabaseEnv()) {
-    return filterTalents(mockTalents, filters);
-  }
-
-  try {
-    const supabase = await getReadClient();
-    const { data: profiles, error } = await supabase
+const getCachedTalents = unstable_cache(
+  async (query: string, school: string, skill: string, limit: number) => {
+    const supabase = getPublicReadClient();
+    let request = supabase
       .from("profiles")
-      .select("*")
+      .select(PROFILE_SELECT)
       .eq("role", "student")
-      .order("updated_at", { ascending: false });
+      .order("updated_at", { ascending: false })
+      .limit(limit);
 
+    if (query) {
+      const pattern = buildSearchPattern(query);
+      request = request.or(
+        `name.ilike.${pattern},nickname.ilike.${pattern},school.ilike.${pattern},major.ilike.${pattern},bio.ilike.${pattern},experience.ilike.${pattern}`,
+      );
+    }
+
+    if (school) {
+      request = request.ilike("school", buildSearchPattern(school));
+    }
+
+    if (skill) {
+      const arrayContains = buildArrayContainsFilter(skill);
+      request = request.or(`skill_tags.cs.${arrayContains},interested_directions.cs.${arrayContains}`);
+    }
+
+    const { data: profiles, error } = await request;
     if (error || !profiles) {
-      throw error;
+      throw error ?? new Error("Failed to load student profiles");
     }
 
     const userIds = profiles.map((item) => String(item.id));
-    const { data: studentProfiles } = userIds.length
-      ? await supabase.from("student_profiles").select("*").in("user_id", userIds)
-      : { data: [] };
+    const { data: studentProfiles, error: studentError } = userIds.length
+      ? await supabase.from("student_profiles").select(STUDENT_PROFILE_SELECT).in("user_id", userIds)
+      : { data: [], error: null };
 
-    const profileMap = new Map(
+    if (studentError) {
+      throw studentError;
+    }
+
+    const studentProfileMap = new Map(
       (studentProfiles ?? []).map((item) => [String((item as StudentProfileRecord).user_id), item as StudentProfileRecord]),
     );
 
-    const normalized = profiles.map((item) =>
-      normalizeStudentProfile(item as ProfileRecord, profileMap.get(String(item.id)) ?? null),
+    return profiles.map((item) =>
+      normalizeStudentProfile(item as ProfileRecord, studentProfileMap.get(String(item.id)) ?? null),
     );
+  },
+  ["public-talents"],
+  { revalidate: 60, tags: ["talents"] },
+);
 
-    return filterTalents(normalized, filters);
-  } catch {
-    try {
-      const supabase = await getReadClient();
-      const { data, error } = await supabase.from("profiles").select("*").order("updated_at", {
-        ascending: false,
-      });
-
-      if (error || !data) {
-        return filterTalents(mockTalents, filters);
-      }
-
-      const normalized = data.map((item) => normalizeLegacyTalent(item as ProfileRecord));
-      return filterTalents(normalized, filters);
-    } catch {
-      return filterTalents(mockTalents, filters);
-    }
-  }
-}
-
-export async function getTalentById(id: string) {
-  const talents = await listTalents();
-  return talents.find((item) => item.id === id) ?? null;
-}
-
-export async function listMentors(filters: ListFilters = {}) {
-  if (!hasSupabaseEnv()) {
-    return filterMentors(mockMentors, filters);
-  }
-
-  try {
-    const supabase = await getReadClient();
-    const { data: profiles, error } = await supabase
-      .from("profiles")
+const getCachedMentors = unstable_cache(
+  async (query: string, school: string, skill: string, limit: number) => {
+    const supabase = getPublicReadClient();
+    let request = supabase
+      .from("mentors")
       .select("*")
-      .eq("role", "mentor")
-      .order("updated_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(limit);
 
-    if (error || !profiles) {
-      throw error;
+    if (query) {
+      const pattern = buildSearchPattern(query);
+      request = request.or(
+        `name.ilike.${pattern},organization.ilike.${pattern},direction.ilike.${pattern},school.ilike.${pattern},college.ilike.${pattern},lab.ilike.${pattern}`,
+      );
     }
 
-    const userIds = profiles.map((item) => String(item.id));
-    const [{ data: mentorProfiles }, { data: legacyMentors }] = await Promise.all([
-      userIds.length ? supabase.from("mentor_profiles").select("*").in("user_id", userIds) : Promise.resolve({ data: [] }),
-      userIds.length ? supabase.from("mentors").select("*") : Promise.resolve({ data: [] }),
-    ]);
-
-    const mentorProfileMap = new Map(
-      (mentorProfiles ?? []).map((item) => [String((item as MentorProfileRecord).user_id), item as MentorProfileRecord]),
-    );
-    const legacyMentorMap = new Map(
-      (legacyMentors ?? []).map((item) => [
-        String((item as LegacyMentorRecord).user_id ?? (item as LegacyMentorRecord).id),
-        item as LegacyMentorRecord,
-      ]),
-    );
-
-    const normalized = profiles.map((item) =>
-      normalizeMentorProfile(
-        item as ProfileRecord,
-        mentorProfileMap.get(String(item.id)) ?? null,
-        legacyMentorMap.get(String(item.id)) ?? null,
-      ),
-    );
-
-    return filterMentors(normalized, filters);
-  } catch {
-    try {
-      const supabase = await getReadClient();
-      const { data, error } = await supabase.from("mentors").select("*").order("created_at", {
-        ascending: false,
-      });
-
-      if (error || !data) {
-        return filterMentors(mockMentors, filters);
-      }
-
-      const normalized = data.map((item) => normalizeLegacyMentor(item as LegacyMentorRecord));
-      return filterMentors(normalized, filters);
-    } catch {
-      return filterMentors(mockMentors, filters);
+    if (school) {
+      const pattern = buildSearchPattern(school);
+      request = request.or(`school.ilike.${pattern},college.ilike.${pattern},lab.ilike.${pattern},organization.ilike.${pattern}`);
     }
-  }
-}
 
-export async function getMentorById(id: string) {
-  const mentors = await listMentors();
-  return mentors.find((item) => item.id === id) ?? null;
-}
+    if (skill) {
+      const arrayContains = buildArrayContainsFilter(skill);
+      request = request.or(`direction_tags.cs.${arrayContains},support_scope.cs.${arrayContains}`);
+    }
 
-export async function listTalentPool(filters: ListFilters = {}) {
-  const [students, mentors] = await Promise.all([listTalents(filters), listMentors(filters)]);
+    const { data, error } = await request;
+    if (error || !data) {
+      throw error ?? new Error("Failed to load mentors");
+    }
 
-  return { students, mentors };
-}
+    return data.map((item) => normalizeLegacyMentor(item as LegacyMentorRecord));
+  },
+  ["public-mentors"],
+  { revalidate: 60, tags: ["mentors"] },
+);
 
-export async function listCases() {
-  if (!hasSupabaseEnv()) {
-    return mockCases;
-  }
-
-  try {
-    const supabase = await getReadClient();
+const getCachedCases = unstable_cache(
+  async () => {
+    const supabase = getPublicReadClient();
     const { data, error } = await supabase.from("cases").select("*").order("created_at", {
       ascending: false,
     });
 
     if (error || !data) {
-      return mockCases;
+      throw error ?? new Error("Failed to load cases");
     }
 
     return data.map((item) => ({
@@ -502,6 +535,168 @@ export async function listCases() {
       relatedOpportunityId: (item.related_opportunity_id as string | null) ?? null,
       isDemo: Boolean(item.is_demo) || demoCaseTitles.has(String(item.title ?? "")),
     })) satisfies CaseCard[];
+  },
+  ["public-cases"],
+  { revalidate: 60, tags: ["cases"] },
+);
+
+export async function listOpportunities(filters: ListFilters = {}, options: ListOptions = {}) {
+  const normalizedFilters = serializeFilters(filters);
+  const limit = options.limit ?? DEFAULT_OPPORTUNITY_LIMIT;
+
+  if (!hasSupabaseEnv()) {
+    return filterOpportunities(mockOpportunities, normalizedFilters).slice(0, limit);
+  }
+
+  try {
+    return await getCachedOpportunities(
+      normalizedFilters.query,
+      normalizedFilters.type,
+      normalizedFilters.school,
+      normalizedFilters.skill,
+      limit,
+    );
+  } catch {
+    return filterOpportunities(mockOpportunities, normalizedFilters).slice(0, limit);
+  }
+}
+
+export async function getOpportunityById(id: string) {
+  if (!hasSupabaseEnv()) {
+    return mockOpportunities.find((item) => item.id === id) ?? null;
+  }
+
+  try {
+    const supabase = getPublicReadClient();
+    const [{ data: opportunity, error }, { data: roles, error: rolesError }] = await Promise.all([
+      supabase.from("opportunities").select(OPPORTUNITY_SELECT).eq("id", id).maybeSingle(),
+      supabase.from("opportunity_roles").select("*").eq("opportunity_id", id),
+    ]);
+
+    if (error || !opportunity || rolesError) {
+      return null;
+    }
+
+    return normalizeOpportunity(opportunity as Record<string, unknown>, buildRoleMap(roles as Array<Record<string, unknown>> | null).get(id) ?? []);
+  } catch {
+    return null;
+  }
+}
+
+export async function listTalents(filters: ListFilters = {}, options: ListOptions = {}) {
+  const normalizedFilters = serializeFilters(filters);
+  const limit = options.limit ?? DEFAULT_TALENT_LIMIT;
+
+  if (!hasSupabaseEnv()) {
+    return filterTalents(mockTalents, normalizedFilters).slice(0, limit);
+  }
+
+  try {
+    return await getCachedTalents(
+      normalizedFilters.query,
+      normalizedFilters.school,
+      normalizedFilters.skill,
+      limit,
+    );
+  } catch {
+    try {
+      const supabase = getPublicReadClient();
+      const { data, error } = await supabase
+        .from("profiles")
+        .select(PROFILE_SELECT)
+        .eq("role", "student")
+        .order("updated_at", { ascending: false })
+        .limit(limit);
+
+      if (error || !data) {
+        return filterTalents(mockTalents, normalizedFilters).slice(0, limit);
+      }
+
+      const normalized = data.map((item) => normalizeLegacyTalent(item as ProfileRecord));
+      return filterTalents(normalized, normalizedFilters).slice(0, limit);
+    } catch {
+      return filterTalents(mockTalents, normalizedFilters).slice(0, limit);
+    }
+  }
+}
+
+export async function getTalentById(id: string) {
+  if (!hasSupabaseEnv()) {
+    return mockTalents.find((item) => item.id === id) ?? null;
+  }
+
+  try {
+    const supabase = getPublicReadClient();
+    const [{ data: profile, error }, { data: studentProfile, error: studentError }] = await Promise.all([
+      supabase.from("profiles").select(PROFILE_SELECT).eq("id", id).maybeSingle(),
+      supabase.from("student_profiles").select(STUDENT_PROFILE_SELECT).eq("user_id", id).maybeSingle(),
+    ]);
+
+    if (error || !profile || studentError) {
+      return null;
+    }
+
+    return normalizeStudentProfile(profile as ProfileRecord, (studentProfile as StudentProfileRecord | null) ?? null);
+  } catch {
+    return null;
+  }
+}
+
+export async function listMentors(filters: ListFilters = {}, options: ListOptions = {}) {
+  const normalizedFilters = serializeFilters(filters);
+  const limit = options.limit ?? DEFAULT_MENTOR_LIMIT;
+
+  if (!hasSupabaseEnv()) {
+    return filterMentors(mockMentors, normalizedFilters).slice(0, limit);
+  }
+
+  try {
+    return await getCachedMentors(
+      normalizedFilters.query,
+      normalizedFilters.school,
+      normalizedFilters.skill,
+      limit,
+    );
+  } catch {
+    return filterMentors(mockMentors, normalizedFilters).slice(0, limit);
+  }
+}
+
+export async function getMentorById(id: string) {
+  if (!hasSupabaseEnv()) {
+    return mockMentors.find((item) => item.id === id) ?? null;
+  }
+
+  try {
+    const supabase = getPublicReadClient();
+    let result = await supabase.from("mentors").select("*").eq("user_id", id).maybeSingle();
+
+    if (result.error || !result.data) {
+      result = await supabase.from("mentors").select("*").eq("id", id).maybeSingle();
+    }
+
+    return result.data ? normalizeLegacyMentor(result.data as LegacyMentorRecord) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function listTalentPool(filters: ListFilters = {}, options: TalentPoolOptions = {}) {
+  const [students, mentors] = await Promise.all([
+    listTalents(filters, { limit: options.studentLimit ?? DEFAULT_TALENT_LIMIT }),
+    listMentors(filters, { limit: options.mentorLimit ?? DEFAULT_MENTOR_LIMIT }),
+  ]);
+
+  return { students, mentors };
+}
+
+export async function listCases() {
+  if (!hasSupabaseEnv()) {
+    return mockCases;
+  }
+
+  try {
+    return await getCachedCases();
   } catch {
     return mockCases;
   }
@@ -513,10 +708,10 @@ export async function getStudentProfileByUserId(userId: string) {
   }
 
   try {
-    const supabase = await getReadClient();
+    const supabase = getPublicReadClient();
     const [{ data: profile }, { data: studentProfile }] = await Promise.all([
-      supabase.from("profiles").select("*").eq("id", userId).maybeSingle(),
-      supabase.from("student_profiles").select("*").eq("user_id", userId).maybeSingle(),
+      supabase.from("profiles").select(PROFILE_SELECT).eq("id", userId).maybeSingle(),
+      supabase.from("student_profiles").select(STUDENT_PROFILE_SELECT).eq("user_id", userId).maybeSingle(),
     ]);
 
     if (!profile) {
@@ -526,8 +721,8 @@ export async function getStudentProfileByUserId(userId: string) {
     return normalizeStudentProfile(profile as ProfileRecord, (studentProfile as StudentProfileRecord | null) ?? null);
   } catch {
     try {
-      const supabase = await getReadClient();
-      const { data } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
+      const supabase = getPublicReadClient();
+      const { data } = await supabase.from("profiles").select(PROFILE_SELECT).eq("id", userId).maybeSingle();
       return data ? normalizeLegacyTalent(data as ProfileRecord) : null;
     } catch {
       return null;
@@ -541,10 +736,10 @@ export async function getMentorProfileByUserId(userId: string) {
   }
 
   try {
-    const supabase = await getReadClient();
+    const supabase = getPublicReadClient();
     const [{ data: profile }, { data: mentorProfile }, { data: legacyMentor }] = await Promise.all([
-      supabase.from("profiles").select("*").eq("id", userId).maybeSingle(),
-      supabase.from("mentor_profiles").select("*").eq("user_id", userId).maybeSingle(),
+      supabase.from("profiles").select(PROFILE_SELECT).eq("id", userId).maybeSingle(),
+      supabase.from("mentor_profiles").select(MENTOR_PROFILE_SELECT).eq("user_id", userId).maybeSingle(),
       supabase.from("mentors").select("*").eq("user_id", userId).maybeSingle(),
     ]);
 
@@ -559,7 +754,7 @@ export async function getMentorProfileByUserId(userId: string) {
     );
   } catch {
     try {
-      const supabase = await getReadClient();
+      const supabase = getPublicReadClient();
       let result = await supabase.from("mentors").select("*").eq("user_id", userId).maybeSingle();
 
       if (result.error) {
@@ -639,17 +834,22 @@ export async function getDashboardSnapshot(userId?: string | null, role?: Accoun
         .from("applications")
         .select("id, status, created_at, opportunity_title")
         .eq("applicant_id", userId)
-        .order("created_at", { ascending: false }),
+        .order("created_at", { ascending: false })
+        .limit(DASHBOARD_APPLICATION_LIMIT),
       supabase
         .from("opportunities")
-        .select("*")
+        .select(OPPORTUNITY_SELECT)
         .eq("creator_id", userId)
-        .order("created_at", { ascending: false }),
+        .order("created_at", { ascending: false })
+        .limit(DASHBOARD_OPPORTUNITY_LIMIT),
       role === "mentor" ? getMentorProfileByUserId(userId) : getStudentProfileByUserId(userId),
     ]);
 
-    const detailedOpportunities = await listOpportunities();
-    const ownOpportunityMap = new Map(detailedOpportunities.map((item) => [item.id, item]));
+    const opportunityIds = opportunities.data?.map((item) => String(item.id)) ?? [];
+    const { data: roleRows } = opportunityIds.length
+      ? await supabase.from("opportunity_roles").select("*").in("opportunity_id", opportunityIds)
+      : { data: [] };
+    const roleMap = buildRoleMap(roleRows as Array<Record<string, unknown>> | null);
 
     return {
       profile,
@@ -662,8 +862,7 @@ export async function getDashboardSnapshot(userId?: string | null, role?: Accoun
         })) ?? [],
       opportunities:
         opportunities.data
-          ?.map((item) => ownOpportunityMap.get(String(item.id)))
-          .filter((item): item is OpportunityDetail => Boolean(item)) ?? [],
+          ?.map((item) => normalizeOpportunity(item as Record<string, unknown>, roleMap.get(String(item.id)) ?? [])) ?? [],
     };
   } catch {
     return {

@@ -156,7 +156,16 @@ create index if not exists idx_student_profiles_user_id on public.student_profil
 create index if not exists idx_mentor_profiles_user_id on public.mentor_profiles (user_id);
 create index if not exists idx_opportunities_creator_id on public.opportunities (creator_id);
 create index if not exists idx_opportunities_creator_role on public.opportunities (creator_role);
+create index if not exists idx_opportunities_created_at_desc on public.opportunities (created_at desc);
+create index if not exists idx_opportunities_status_created_at_desc on public.opportunities (status, created_at desc);
+create index if not exists idx_opportunities_type_created_at_desc on public.opportunities (type, created_at desc);
+create index if not exists idx_opportunities_creator_id_created_at_desc on public.opportunities (creator_id, created_at desc);
+create index if not exists idx_opportunity_roles_opportunity_id on public.opportunity_roles (opportunity_id);
+create index if not exists idx_applications_applicant_id_created_at_desc on public.applications (applicant_id, created_at desc);
+create index if not exists idx_applications_opportunity_id_created_at_desc on public.applications (opportunity_id, created_at desc);
+create index if not exists idx_profiles_role_updated_at_desc on public.profiles (role, updated_at desc);
 create index if not exists idx_mentors_user_id on public.mentors (user_id);
+create index if not exists idx_mentors_created_at_desc on public.mentors (created_at desc);
 
 alter table public.profiles enable row level security;
 alter table public.student_profiles enable row level security;
@@ -239,6 +248,19 @@ with check (
 drop policy if exists "users can read own applications" on public.applications;
 create policy "users can read own applications"
 on public.applications for select using (auth.uid() = applicant_id);
+
+drop policy if exists "creators can read applications on own opportunities" on public.applications;
+create policy "creators can read applications on own opportunities"
+on public.applications
+for select
+using (
+  exists (
+    select 1
+    from public.opportunities
+    where public.opportunities.id = public.applications.opportunity_id
+      and public.opportunities.creator_id = auth.uid()
+  )
+);
 
 drop policy if exists "users can insert own applications" on public.applications;
 create policy "users can insert own applications"

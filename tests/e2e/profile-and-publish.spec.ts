@@ -2,6 +2,8 @@ import { expect, test } from "@playwright/test";
 
 import {
   createConfirmedUser,
+  createOpportunity,
+  deleteOpportunity,
   deleteUser,
   seedMentorProfile,
   seedStudentProfile,
@@ -82,6 +84,42 @@ test.describe("身份、资料闭环与发布流程", () => {
       await expect(page.locator('input[name="organization"]')).toHaveValue("兰州交通大学 / 自动化测试队");
     } finally {
       await deleteUser(user.id);
+    }
+  });
+
+  test("发布管理页只显示当前用户自己的招募", async ({ page }) => {
+    const owner = await createConfirmedUser();
+    const anotherUser = await createConfirmedUser();
+    let ownerOpportunityId = "";
+    let anotherOpportunityId = "";
+
+    try {
+      await seedStudentProfile(owner, { completed: true });
+      await seedStudentProfile(anotherUser, { completed: true });
+      ownerOpportunityId = await createOpportunity({
+        creator: owner,
+        creatorRole: "student",
+        title: "我的发布管理测试招募",
+      });
+      anotherOpportunityId = await createOpportunity({
+        creator: anotherUser,
+        creatorRole: "student",
+        title: "不该出现在我后台的招募",
+      });
+
+      await loginViaUi(page, owner.email, owner.password, "/dashboard");
+      await expect(page).toHaveURL(/\/dashboard$/);
+      await expect(page.getByText("我的发布管理测试招募")).toBeVisible();
+      await expect(page.getByText("不该出现在我后台的招募")).toHaveCount(0);
+    } finally {
+      if (ownerOpportunityId) {
+        await deleteOpportunity(ownerOpportunityId);
+      }
+      if (anotherOpportunityId) {
+        await deleteOpportunity(anotherOpportunityId);
+      }
+      await deleteUser(owner.id);
+      await deleteUser(anotherUser.id);
     }
   });
 });

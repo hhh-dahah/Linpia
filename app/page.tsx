@@ -41,8 +41,8 @@ const heroActions = [
 
 export default async function HomePage() {
   const [opportunities, homeTalentPool] = await Promise.all([
-    listOpportunities(),
-    listTalentPool(),
+    listOpportunities({}, { limit: 3 }),
+    listTalentPool({}, { mentorLimit: 4, studentLimit: 4 }),
   ]);
 
   return (
@@ -100,7 +100,7 @@ export default async function HomePage() {
           </Link>
         </div>
         <div className="grid gap-4 sm:gap-5 lg:grid-cols-3">
-          {opportunities.slice(0, 3).map((item) => (
+          {opportunities.map((item) => (
             <OpportunityCard key={item.id} item={item} />
           ))}
         </div>

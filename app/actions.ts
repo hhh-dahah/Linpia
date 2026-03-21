@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
@@ -352,6 +352,7 @@ export async function saveProfileAction(_: ActionState, formData: FormData): Pro
     revalidatePath("/dashboard");
     revalidatePath("/");
     revalidatePath("/talent");
+    revalidateTag("talents", "max");
 
     return { status: "success", message: "学生资料已保存。" };
   } catch (error) {
@@ -489,6 +490,7 @@ export async function saveMentorProfileAction(
     revalidatePath("/");
     revalidatePath("/talent");
     revalidatePath("/mentors");
+    revalidateTag("mentors", "max");
 
     return { status: "success", message: "导师资料已保存。" };
   } catch (error) {
@@ -671,6 +673,7 @@ export async function publishOpportunityAction(
     revalidatePath("/opportunities");
     revalidatePath("/publish");
     revalidatePath("/dashboard");
+    revalidateTag("opportunities", "max");
 
     return { status: "success", message: "招募已发布。" };
   } catch (error) {
@@ -800,6 +803,7 @@ export async function saveMentorAction(_: ActionState, formData: FormData): Prom
 
     revalidatePath("/mentors");
     revalidatePath("/dashboard/admin");
+    revalidateTag("mentors", "max");
     return { status: "success", message: "导师资料已录入。" };
   } catch (error) {
     return {
@@ -852,6 +856,7 @@ export async function saveCaseAction(_: ActionState, formData: FormData): Promis
 
     revalidatePath("/cases");
     revalidatePath("/dashboard/admin");
+    revalidateTag("cases", "max");
     return { status: "success", message: "案例已录入。" };
   } catch (error) {
     return {
