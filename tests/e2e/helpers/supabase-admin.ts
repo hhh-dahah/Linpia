@@ -245,6 +245,34 @@ export async function deleteUser(userId: string) {
   await admin.auth.admin.deleteUser(userId);
 }
 
+export async function deleteUserByEmail(email: string) {
+  let page = 1;
+
+  while (true) {
+    const { data, error } = await admin.auth.admin.listUsers({
+      page,
+      perPage: 200,
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    const user = data.users.find((item) => item.email?.toLowerCase() === email.toLowerCase());
+
+    if (user) {
+      await deleteUser(user.id);
+      return;
+    }
+
+    if (data.users.length < 200) {
+      return;
+    }
+
+    page += 1;
+  }
+}
+
 export async function signUpUser(email: string, password: string) {
   const { data, error } = await anon.auth.signUp({ email, password });
   if (error) {

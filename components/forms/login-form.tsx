@@ -16,7 +16,8 @@ type AuthMode = "login" | "register";
 type RegisterStep = "form" | "verify";
 
 const MIN_PASSWORD_LENGTH = 6;
-const requireEmailConfirmation = process.env.NEXT_PUBLIC_AUTH_REQUIRE_EMAIL_CONFIRMATION !== "false";
+const requireEmailConfirmation =
+  process.env.NEXT_PUBLIC_AUTH_REQUIRE_EMAIL_CONFIRMATION === "true";
 
 type LoginFormProps = {
   nextPath: string;
@@ -35,7 +36,9 @@ export function LoginForm({ nextPath, initialState }: LoginFormProps) {
     registerCode: "",
   });
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const [serverState, setServerState] = useState<ActionState>(initialState ?? initialActionState);
+  const [serverState, setServerState] = useState<ActionState>(
+    initialState ?? initialActionState,
+  );
   const [isPending, startTransition] = useTransition();
 
   function setValue(
@@ -43,6 +46,24 @@ export function LoginForm({ nextPath, initialState }: LoginFormProps) {
     value: string,
   ) {
     setValues((current) => ({ ...current, [key]: value }));
+  }
+
+  function resetRegisterFlow() {
+    setRegisterStep("form");
+    setValues((current) => ({ ...current, registerCode: "" }));
+  }
+
+  function switchToLoginWithSuccess(message: string) {
+    setMode("login");
+    setRegisterStep("form");
+    setFieldErrors({});
+    setValues((current) => ({
+      ...current,
+      password: "",
+      confirmPassword: "",
+      registerCode: "",
+    }));
+    setServerState({ status: "success", message, fieldErrors: {} });
   }
 
   function validate(currentMode: AuthMode) {
@@ -69,18 +90,17 @@ export function LoginForm({ nextPath, initialState }: LoginFormProps) {
     return nextErrors;
   }
 
-  function resetRegisterFlow() {
-    setRegisterStep("form");
-    setValues((current) => ({ ...current, registerCode: "" }));
-  }
-
   async function handleLogin(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const nextErrors = validate("login");
 
     if (Object.keys(nextErrors).length > 0) {
       setFieldErrors(nextErrors);
-      setServerState({ status: "error", message: "请先把邮箱和密码填写完整。" });
+      setServerState({
+        status: "error",
+        message: "请先把邮箱和密码填写完整。",
+        fieldErrors: {},
+      });
       scrollToFirstError(nextErrors);
       return;
     }
@@ -95,11 +115,19 @@ export function LoginForm({ nextPath, initialState }: LoginFormProps) {
       });
 
       if (error) {
-        setServerState({ status: "error", message: mapAuthErrorMessage(error.message) });
+        setServerState({
+          status: "error",
+          message: mapAuthErrorMessage(error.message),
+          fieldErrors: {},
+        });
         return;
       }
 
-      setServerState({ status: "success", message: "登录成功，正在带你回到刚才的操作。" });
+      setServerState({
+        status: "success",
+        message: "登录成功，正在带你回到刚才的操作。",
+        fieldErrors: {},
+      });
       router.replace(`/auth/complete?next=${encodeURIComponent(nextPath)}`);
       router.refresh();
     });
@@ -111,7 +139,11 @@ export function LoginForm({ nextPath, initialState }: LoginFormProps) {
 
     if (Object.keys(nextErrors).length > 0) {
       setFieldErrors(nextErrors);
-      setServerState({ status: "error", message: "请先把注册信息填写完整。" });
+      setServerState({
+        status: "error",
+        message: "请先把注册信息填写完整。",
+        fieldErrors: {},
+      });
       scrollToFirstError(nextErrors);
       return;
     }
@@ -126,27 +158,38 @@ export function LoginForm({ nextPath, initialState }: LoginFormProps) {
       });
 
       if (error) {
-        setServerState({ status: "error", message: mapAuthErrorMessage(error.message) });
-        return;
-      }
-
-      if (data.session) {
-        setServerState({ status: "success", message: "注册成功，正在进入下一步。" });
-        router.replace(`/auth/complete?next=${encodeURIComponent(nextPath)}`);
-        router.refresh();
-        return;
-      }
-
-      if (requireEmailConfirmation) {
-        setRegisterStep("verify");
         setServerState({
-          status: "success",
-          message: "注册成功，验证码已经发到你的邮箱。输入验证码后就能完成注册。",
+          status: "error",
+          message: mapAuthErrorMessage(error.message),
+          fieldErrors: {},
         });
         return;
       }
 
-      setServerState({ status: "success", message: "注册成功，现在可以直接登录。" });
+      if (requireEmailConfirmation && !data.session) {
+        setRegisterStep("verify");
+        setServerState({
+          status: "success",
+          message: "注册成功，请输入邮箱里的验证码完成确认。",
+          fieldErrors: {},
+        });
+        return;
+      }
+
+      if (data.session) {
+        const { error: signOutError } = await supabase.auth.signOut();
+
+        if (signOutError) {
+          setServerState({
+            status: "error",
+            message: "账号已创建成功，请稍后直接登录。",
+            fieldErrors: {},
+          });
+          return;
+        }
+      }
+
+      switchToLoginWithSuccess("注册成功，已为你创建账号，请继续登录。");
     });
   }
 
@@ -161,7 +204,11 @@ export function LoginForm({ nextPath, initialState }: LoginFormProps) {
 
     if (Object.keys(nextErrors).length > 0) {
       setFieldErrors(nextErrors);
-      setServerState({ status: "error", message: "请先输入邮箱验证码。" });
+      setServerState({
+        status: "error",
+        message: "请先输入邮箱验证码。",
+        fieldErrors: {},
+      });
       scrollToFirstError(nextErrors);
       return;
     }
@@ -177,13 +224,15 @@ export function LoginForm({ nextPath, initialState }: LoginFormProps) {
       });
 
       if (error) {
-        setServerState({ status: "error", message: mapAuthErrorMessage(error.message) });
+        setServerState({
+          status: "error",
+          message: mapAuthErrorMessage(error.message),
+          fieldErrors: {},
+        });
         return;
       }
 
-      setServerState({ status: "success", message: "邮箱验证成功，正在进入下一步。" });
-      router.replace(`/auth/complete?next=${encodeURIComponent(nextPath)}`);
-      router.refresh();
+      switchToLoginWithSuccess("邮箱确认成功，请直接登录。");
     });
   }
 
@@ -199,7 +248,9 @@ export function LoginForm({ nextPath, initialState }: LoginFormProps) {
             resetRegisterFlow();
           }}
           className={`rounded-full px-5 py-2 text-sm font-semibold transition ${
-            mode === "login" ? "bg-white text-[var(--foreground)] shadow-sm" : "text-[var(--muted)]"
+            mode === "login"
+              ? "bg-white text-[var(--foreground)] shadow-sm"
+              : "text-[var(--muted)]"
           }`}
         >
           登录
@@ -213,7 +264,9 @@ export function LoginForm({ nextPath, initialState }: LoginFormProps) {
             resetRegisterFlow();
           }}
           className={`rounded-full px-5 py-2 text-sm font-semibold transition ${
-            mode === "register" ? "bg-white text-[var(--foreground)] shadow-sm" : "text-[var(--muted)]"
+            mode === "register"
+              ? "bg-white text-[var(--foreground)] shadow-sm"
+              : "text-[var(--muted)]"
           }`}
         >
           注册
@@ -330,7 +383,7 @@ export function LoginForm({ nextPath, initialState }: LoginFormProps) {
           </label>
 
           <p className="text-sm leading-7 text-[var(--muted)]">
-            注册后请根据系统提示输入邮箱验证码，完成确认后就可以直接用邮箱和密码登录。
+            注册成功后即可回到登录页，直接使用邮箱和密码登录。
           </p>
 
           <FormFeedback state={serverState} />
@@ -385,7 +438,7 @@ export function LoginForm({ nextPath, initialState }: LoginFormProps) {
           </label>
 
           <p className="text-sm leading-7 text-[var(--muted)]">
-            这一步只在注册时需要。验证完成后，后面就直接用邮箱和密码登录。
+            当前仅在启用邮箱确认开关时会出现这一步。确认完成后即可直接登录。
           </p>
 
           <FormFeedback state={serverState} />
@@ -396,7 +449,7 @@ export function LoginForm({ nextPath, initialState }: LoginFormProps) {
               disabled={isPending}
               className="flex-1 rounded-full bg-[var(--primary)] px-5 py-3 font-semibold text-white transition hover:bg-[var(--primary-strong)] disabled:cursor-not-allowed disabled:opacity-70"
             >
-              {isPending ? "验证中..." : "验证并完成注册"}
+              {isPending ? "确认中..." : "确认并完成注册"}
             </button>
             <button
               type="button"

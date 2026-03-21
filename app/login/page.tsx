@@ -22,11 +22,11 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
     <FormShell
       eyebrow="账号登录"
       title="登录后继续你刚才想做的事"
-      description="现在主登录方式已经改成邮箱和密码。注册时会用邮箱验证码确认，登录后会自动保持登录状态。"
+      description="现在支持直接使用邮箱和密码登录。注册成功后即可回到这里继续登录，登录后会自动保持登录状态。"
       asideTitle="登录后可以做什么"
-      asideDescription="登录后就可以发布招募、报名合作、完善身份资料，也能继续进入你刚才停下来的那一步。"
+      asideDescription="Linpai 的发招募、报名合作和展示技能都共用同一个账号体系，不需要反复切换入口。"
       tips={[
-        "如果你是第一次来，先注册，再输入邮箱验证码完成确认。",
+        "如果你是第一次来，先注册，再直接登录。",
         "如果只是忘了密码，直接点“忘记密码”就可以。",
         "没有指定下一步时，登录成功后会先回到首页。",
       ]}

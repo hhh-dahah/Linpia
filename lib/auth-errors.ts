@@ -13,7 +13,7 @@ export function mapAuthErrorMessage(message?: string | null) {
   }
 
   if (normalized.includes("email not confirmed")) {
-    return "请先完成邮箱验证后再登录。";
+    return "账号暂时无法登录，请稍后重试。";
   }
 
   if (normalized.includes("user already registered")) {

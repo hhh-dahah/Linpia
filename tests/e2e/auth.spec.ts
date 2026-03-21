@@ -1,63 +1,30 @@
 import { expect, test } from "@playwright/test";
 
-import {
-  createConfirmedUser,
-  deleteUser,
-  generateSignupOtp,
-  makeTestEmail,
-  seedStudentProfile,
-} from "./helpers/supabase-admin";
-
-async function loginViaUi(
-  page: import("@playwright/test").Page,
-  email: string,
-  password: string,
-  nextPath = "/",
-) {
-  await page.goto(`/login?next=${encodeURIComponent(nextPath)}`);
-  await page.locator('input[name="email"]').fill(email);
-  await page.locator('input[name="password"]').fill(password);
-  await page.locator('form').getByRole("button", { name: "登录", exact: true }).click();
-}
+import { createConfirmedUser, deleteUser, deleteUserByEmail, makeTestEmail } from "./helpers/supabase-admin";
 
 test.describe("认证主流程", () => {
-  test("注册后进入验证码确认步骤，并在验证成功后进入身份选择页", async ({ page }) => {
+  test.describe.configure({ mode: "serial" });
+
+  test("注册成功后直接回到登录表单，不再出现验证码步骤", async ({ page }) => {
     const email = makeTestEmail("register-flow");
     const password = "Passw0rd!";
 
-    await page.goto("/login");
-    await page.getByRole("button", { name: "注册", exact: true }).first().click();
-    await page.locator('input[name="email"]').fill(email);
-    await page.locator('input[name="password"]').fill(password);
-    await page.locator('input[name="confirmPassword"]').fill(password);
-    await page.locator('form').getByRole("button", { name: "注册", exact: true }).click();
-
-    await expect(page.locator('input[name="registerCode"]')).toBeVisible();
-
-    const otp = await generateSignupOtp(email, password);
-    await page.locator('input[name="registerCode"]').fill(otp);
-    await page.locator('form').getByRole("button", { name: /验证/ }).click();
-
-    await expect(page).toHaveURL(/\/onboarding\/role/);
-  });
-
-  test("邮箱密码登录后保持登录状态，并且可以退出登录", async ({ page }) => {
-    const user = await createConfirmedUser();
-
     try {
-      await seedStudentProfile(user, { completed: true });
-      await loginViaUi(page, user.email, user.password);
+      await page.goto("/login");
+      await page.getByRole("button", { name: "注册", exact: true }).first().click();
+      await page.locator('input[name="email"]').fill(email);
+      await page.locator('input[name="password"]').fill(password);
+      await page.locator('input[name="confirmPassword"]').fill(password);
+      await page.locator('form').getByRole("button", { name: "注册", exact: true }).click();
 
-      await expect(page).toHaveURL(/\/$/);
-      await expect(page.locator('a[href="/profile"]').first()).toBeVisible();
-
-      await page.reload();
-      await expect(page.locator('a[href="/profile"]').first()).toBeVisible();
-
-      await page.getByRole("button", { name: "退出登录", exact: true }).click();
-      await expect(page.locator('a[href="/login"]').first()).toBeVisible();
+      await expect(page.locator('input[name="registerCode"]')).toHaveCount(0);
+      await expect(
+        page.getByText("注册成功，已为你创建账号，请继续登录。"),
+      ).toBeVisible();
+      await expect(page.locator('input[name="password"]')).toHaveValue("");
+      await expect(page.locator('form').getByRole("button", { name: "登录", exact: true })).toBeVisible();
     } finally {
-      await deleteUser(user.id);
+      await deleteUserByEmail(email);
     }
   });
 
