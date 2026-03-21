@@ -202,11 +202,11 @@ pnpm build
 建议补齐 Redirect URLs：
 
 - `http://localhost:3000`
-- `https://linpia.vercel.app`
+- `https://linpai.fun`
 - `http://localhost:3000/auth/callback`
-- `https://linpia.vercel.app/auth/callback`
+- `https://linpai.fun/auth/callback`
 - `http://localhost:3000/reset-password`
-- `https://linpia.vercel.app/reset-password`
+- `https://linpai.fun/reset-password`
 
 如果要接正式邮件能力，建议在 `Authentication > SMTP Settings` 中接入自己的 SMTP 服务。
 
