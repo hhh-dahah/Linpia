@@ -1,15 +1,16 @@
 import Link from "next/link";
 import { ArrowRight, BriefcaseBusiness, PencilRuler, Search } from "lucide-react";
 
-import { HomeTalentPoolSection } from "@/components/home/home-talent-pool-section";
 import { OpportunityCard } from "@/components/cards/opportunity-card";
+import { HomeTalentPoolSection } from "@/components/home/home-talent-pool-section";
 import { PageHeading } from "@/components/ui/page-heading";
 import { listOpportunities, listTalentPool } from "@/lib/data";
 
 const heroActions = [
   {
-    title: "我要匹配队伍",
-    description: "看比赛组队、项目招募、导师带队和短期合作，在一个招募池里快速找到适合自己的入口。",
+    title: "我要找队伍",
+    description:
+      "看比赛组队、项目招募、导师带队和短期合作，在一个招募池里更快找到适合自己的入口。",
     href: "/opportunities",
     cta: "去找队伍",
     icon: Search,
@@ -17,8 +18,9 @@ const heroActions = [
       "bg-[linear-gradient(135deg,_rgba(51,112,255,0.12),_rgba(116,194,255,0.18))] text-[var(--primary-strong)]",
   },
   {
-    title: "我要发布招募",
-    description: "学生队长、项目发起人和导师都从这里发招募，不再拆成多个入口，减少理解成本。",
+    title: "我要发招募",
+    description:
+      "学生队长、项目发起人和导师都从这里发招募，不再拆成多个入口，减少理解成本。",
     href: "/publish",
     cta: "去发布招募",
     icon: BriefcaseBusiness,
@@ -27,7 +29,8 @@ const heroActions = [
   },
   {
     title: "我要展示技能",
-    description: "先挂出你的基础信息、方向和能力卡，让别人更快知道你适合加入什么合作。",
+    description:
+      "先挂出你的基础信息、方向和能力卡，让别人更快知道你适合加入什么合作。",
     href: "/profile",
     cta: "去展示技能",
     icon: PencilRuler,
@@ -43,8 +46,8 @@ export default async function HomePage() {
   ]);
 
   return (
-    <div className="space-y-14 sm:space-y-16">
-      <section className="surface-card rounded-[2rem] px-5 py-5 sm:px-8 sm:py-7 lg:px-10 lg:py-8">
+    <div className="space-y-8 sm:space-y-16">
+      <section className="surface-card rounded-[2rem] px-5 py-4 sm:px-8 sm:py-7 lg:px-10 lg:py-8">
         <div className="flex justify-end">
           <div className="chip">邻派 Linpai</div>
         </div>
@@ -60,12 +63,12 @@ export default async function HomePage() {
           </p>
         </div>
 
-        <div className="mt-8 grid gap-4 lg:grid-cols-3">
+        <div className="mt-6 grid gap-3 lg:grid-cols-3">
           {heroActions.map((item) => (
             <Link
               key={item.title}
               href={item.href}
-              className="group surface-panel rounded-[1.6rem] px-5 py-5 hover:-translate-y-1 sm:px-6 sm:py-6"
+              className="group surface-panel rounded-[1.6rem] px-4 py-4 hover:-translate-y-1 sm:px-6 sm:py-6"
             >
               <div className="flex items-start gap-4">
                 <div
@@ -80,8 +83,8 @@ export default async function HomePage() {
                     </h2>
                     <ArrowRight className="h-4 w-4 shrink-0 text-[var(--primary)] transition duration-200 group-hover:translate-x-1" />
                   </div>
-                  <p className="mt-2 text-sm leading-7 text-[var(--muted)]">{item.description}</p>
-                  <div className="mt-4 text-sm font-semibold text-[var(--primary)]">{item.cta}</div>
+                  <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{item.description}</p>
+                  <div className="mt-3 text-sm font-semibold text-[var(--primary)]">{item.cta}</div>
                 </div>
               </div>
             </Link>
@@ -89,13 +92,9 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="space-y-5">
+      <section className="space-y-4">
         <div className="flex items-end justify-between gap-4">
-          <PageHeading
-            eyebrow="找队伍"
-            title="统一查看所有正在开放的招募"
-            description="导师带队、学生队长和项目发起人的招募都进入同一个列表流，不需要先区分身份，再通过标签判断。"
-          />
+          <PageHeading eyebrow="找队伍" title="统一查看所有正在开放的招募" />
           <Link href="/opportunities" className="ui-link hidden text-sm font-semibold sm:block">
             查看全部招募
           </Link>
