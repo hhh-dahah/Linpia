@@ -33,11 +33,13 @@
 
 html {
   scroll-behavior: smooth;
+  overflow-x: clip;
 }
 
 body {
   margin: 0;
   min-height: 100vh;
+  overflow-x: clip;
   background:
     radial-gradient(circle at top left, rgba(92, 148, 255, 0.12), transparent 30%),
     radial-gradient(circle at right 10%, rgba(124, 196, 255, 0.12), transparent 22%),
@@ -45,6 +47,11 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), sans-serif;
   text-rendering: optimizeLegibility;
+}
+
+img {
+  max-width: 100%;
+  display: block;
 }
 
 body::before {
@@ -184,6 +191,10 @@ select {
   filter: saturate(1.03);
 }
 
+.ui-button-primary:active {
+  transform: scale(0.98);
+}
+
 .ui-button-secondary {
   display: inline-flex;
   align-items: center;
@@ -204,4 +215,8 @@ select {
   border-color: rgba(51, 112, 255, 0.24);
   box-shadow: 0 10px 24px rgba(18, 39, 74, 0.06);
   color: var(--primary);
+}
+
+.ui-button-secondary:active {
+  transform: scale(0.98);
 }

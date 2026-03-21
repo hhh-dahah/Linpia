@@ -22,22 +22,22 @@ export function FormShell({
   className,
 }: FormShellProps) {
   return (
-    <div className={cn("grid gap-6 xl:grid-cols-[0.92fr_1.08fr]", className)}>
-      <aside className="surface-panel rounded-[1.9rem] px-6 py-7 sm:px-8 sm:py-8">
+    <div className={cn("grid gap-4 overflow-x-clip xl:grid-cols-[0.92fr_1.08fr] xl:gap-6", className)}>
+      <aside className="surface-panel min-w-0 overflow-hidden rounded-[1.6rem] px-5 py-6 sm:rounded-[1.9rem] sm:px-8 sm:py-8">
         <div className="chip">{eyebrow}</div>
-        <h1 className="mt-5 font-display text-3xl font-bold leading-tight tracking-[-0.03em] text-[var(--foreground)] sm:text-4xl">
+        <h1 className="mt-5 break-words font-display text-[2.15rem] font-bold leading-[1.08] tracking-[-0.03em] text-[var(--foreground)] sm:text-4xl">
           {title}
         </h1>
-        <p className="mt-4 text-sm leading-7 text-[var(--muted)] sm:text-base">{description}</p>
+        <p className="mt-4 break-words text-sm leading-7 text-[var(--muted)] sm:text-base">{description}</p>
 
-        <div className="mt-8 rounded-[1.5rem] border border-[var(--line)] bg-[var(--surface-muted)] p-5">
+        <div className="mt-8 overflow-hidden rounded-[1.5rem] border border-[var(--line)] bg-[var(--surface-muted)] p-4 sm:p-5">
           <h2 className="text-lg font-semibold text-[var(--foreground)]">{asideTitle}</h2>
-          <p className="mt-2 text-sm leading-7 text-[var(--muted)]">{asideDescription}</p>
+          <p className="mt-2 break-words text-sm leading-7 text-[var(--muted)]">{asideDescription}</p>
           <div className="mt-5 space-y-3">
             {tips.map((tip, index) => (
               <div
                 key={`${index}-${tip}`}
-                className="rounded-2xl border border-[var(--line)] bg-white/88 px-4 py-3 text-sm leading-6 text-[var(--foreground)]"
+                className="overflow-hidden rounded-2xl border border-[var(--line)] bg-white/88 px-4 py-3 text-sm leading-6 text-[var(--foreground)]"
               >
                 <span className="mr-2 font-semibold text-[var(--primary)]">0{index + 1}</span>
                 {tip}
@@ -47,7 +47,9 @@ export function FormShell({
         </div>
       </aside>
 
-      <section className="surface-card rounded-[1.9rem] px-5 py-6 sm:px-8 sm:py-8">{children}</section>
+      <section className="surface-card min-w-0 overflow-hidden rounded-[1.6rem] px-4 py-5 sm:rounded-[1.9rem] sm:px-8 sm:py-8">
+        {children}
+      </section>
     </div>
   );
 }

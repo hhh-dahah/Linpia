@@ -31,6 +31,7 @@ export function SiteNav() {
             <Link
               key={item.href}
               href={item.href}
+              prefetch
               aria-current={isActive ? "page" : undefined}
               className={cn(
                 "rounded-full px-4 py-2.5 transition-[transform,background-color,color,box-shadow] duration-150 ease-out",
