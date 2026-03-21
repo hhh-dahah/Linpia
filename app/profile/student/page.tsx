@@ -34,7 +34,7 @@ export default async function StudentProfilePage({ searchParams }: StudentProfil
       title="把你的基础信息和想加入的方向挂出来"
       description="不用等到自己非常完整再来填。先把学校、方向、经历和联系方式写清楚，别人就更容易判断怎么和你合作。"
       asideTitle="这页会影响什么"
-      asideDescription="学生资料保存后，你的个人资料页就会更新，也能更顺畅地报名合作或继续发招募。"
+      asideDescription="学生资料保存后，你的个人资料页和技能展示都会更新，也能更顺畅地报名合作或继续发招募。"
       tips={[
         "技能标签可以先少填，后面再慢慢补。",
         "比赛 / 项目经历尽量写具体一点。",

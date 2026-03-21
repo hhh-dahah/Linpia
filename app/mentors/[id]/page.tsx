@@ -98,7 +98,7 @@ export default async function MentorDetailPage({ params }: MentorDetailPageProps
             <Link href="/profile" className="ui-button-secondary px-5 py-3 text-center font-semibold">
               去完善个人资料
             </Link>
-            <Link href="/talent#mentor-section" className="ui-button-secondary px-5 py-3 text-center font-semibold">
+            <Link href="/#mentor-section" className="ui-button-secondary px-5 py-3 text-center font-semibold">
               返回导师区
             </Link>
           </div>

@@ -25,9 +25,9 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
     <FormShell
       eyebrow="个人资料"
       title={flow.role === "student" ? "这是你现在对外展示的学生资料" : "这是你现在对外展示的导师资料"}
-      description="这里会统一展示你的基础信息、方向、标签和联系方式。资料越清楚，别人越容易知道怎样和你合作。"
+      description="这里会统一展示你的基础信息、方向、标签和联系方式。先把资料完善好，你的技能展示就能更清楚地被别人看到。"
       asideTitle="你现在还可以做什么"
-      asideDescription="资料准备好之后，你可以继续发布招募、进入管理页，或者回到人才池看看平台里还有哪些人正在协作。"
+      asideDescription="资料准备好之后，你可以继续发布招募、进入管理页，也可以回到首页的人才池看看平台里还有哪些人在展示技能。"
       tips={[
         "学生和导师都通过同一个入口进入个人资料体系。",
         "资料补充后会同步更新到你的展示页。",
@@ -87,7 +87,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
             <Link href="/dashboard" className="ui-button-secondary px-5 py-3 text-sm font-semibold">
               进入我的发布管理
             </Link>
-            <Link href="/talent" className="ui-button-secondary px-5 py-3 text-sm font-semibold">
+            <Link href="/#talent-pool" className="ui-button-secondary px-5 py-3 text-sm font-semibold">
               去看看人才池
             </Link>
           </div>

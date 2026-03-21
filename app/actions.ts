@@ -350,6 +350,7 @@ export async function saveProfileAction(_: ActionState, formData: FormData): Pro
     revalidatePath("/profile");
     revalidatePath("/profile/student");
     revalidatePath("/dashboard");
+    revalidatePath("/");
     revalidatePath("/talent");
 
     return { status: "success", message: "学生资料已保存。" };
@@ -412,6 +413,7 @@ export async function saveMentorProfileAction(
     let profileResult = await client.from("profiles").upsert({
       id: user.id,
       role: "mentor",
+      name: parsed.data.name,
       nickname: parsed.data.name,
       profile_completed: profileCompleted,
       updated_at: new Date().toISOString(),
@@ -420,6 +422,7 @@ export async function saveMentorProfileAction(
     if (profileResult.error && /column .*role|column .*profile_completed/i.test(profileResult.error.message)) {
       profileResult = await client.from("profiles").upsert({
         id: user.id,
+        name: parsed.data.name,
         nickname: parsed.data.name,
         updated_at: new Date().toISOString(),
       });
@@ -483,6 +486,7 @@ export async function saveMentorProfileAction(
     revalidatePath("/profile");
     revalidatePath("/profile/mentor");
     revalidatePath("/dashboard");
+    revalidatePath("/");
     revalidatePath("/talent");
     revalidatePath("/mentors");
 

@@ -7,6 +7,10 @@ import { siteNavigation } from "@/constants";
 import { cn } from "@/lib/utils";
 
 function isActivePath(pathname: string, href: string) {
+  if (href.includes("#")) {
+    return false;
+  }
+
   if (href === "/") {
     return pathname === "/";
   }

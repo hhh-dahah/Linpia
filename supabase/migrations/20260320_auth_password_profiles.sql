@@ -89,6 +89,8 @@ select
   contact_mode,
   application_notes
 from public.mentors
+inner join auth.users
+  on auth.users.id = coalesce(public.mentors.user_id, public.mentors.id)
 where coalesce(user_id, id) is not null
   and not exists (
     select 1

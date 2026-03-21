@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { ArrowRight, BriefcaseBusiness, PencilRuler, Search } from "lucide-react";
 
+import { HomeTalentPoolSection } from "@/components/home/home-talent-pool-section";
 import { OpportunityCard } from "@/components/cards/opportunity-card";
 import { PageHeading } from "@/components/ui/page-heading";
-import { listOpportunities } from "@/lib/data";
+import { listOpportunities, listTalentPool } from "@/lib/data";
 
 const heroActions = [
   {
@@ -36,7 +37,10 @@ const heroActions = [
 ] as const;
 
 export default async function HomePage() {
-  const opportunities = await listOpportunities();
+  const [opportunities, homeTalentPool] = await Promise.all([
+    listOpportunities(),
+    listTalentPool(),
+  ]);
 
   return (
     <div className="space-y-14 sm:space-y-16">
@@ -102,6 +106,11 @@ export default async function HomePage() {
           ))}
         </div>
       </section>
+
+      <HomeTalentPoolSection
+        mentors={homeTalentPool.mentors}
+        students={homeTalentPool.students}
+      />
     </div>
   );
 }
