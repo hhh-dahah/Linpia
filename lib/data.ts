@@ -38,6 +38,7 @@ type ProfileRecord = Record<string, unknown>;
 type StudentProfileRecord = Record<string, unknown>;
 type MentorProfileRecord = Record<string, unknown>;
 type LegacyMentorRecord = Record<string, unknown>;
+type ReadMode = "public" | "session";
 
 const DEFAULT_OPPORTUNITY_LIMIT = 24;
 const DEFAULT_TALENT_LIMIT = 12;
@@ -48,12 +49,13 @@ const DASHBOARD_APPLICATION_LIMIT = 20;
 const OPPORTUNITY_SELECT =
   "id, type, title, summary, organization, school_scope, deadline, creator_id, creator_name, creator_role, creator_org_name, contact_info, cover_path, feishu_url, status, weekly_hours, progress, trial_task, skill_tags, preset_tags, custom_tags, deliverables, project_name, people_needed, research_direction, target_audience, support_method, applicant_count, created_at";
 const PROFILE_SELECT =
-  "id, role, name, nickname, school, major, grade, bio, avatar_path, portfolio_cover_path, portfolio_external_url, time_commitment, skill_tags, interested_directions, achievements, experience, contact, contact_hint, is_demo, updated_at";
+  "id, role, name, nickname, school, major, grade, bio, avatar_path, portfolio_cover_path, portfolio_external_url, time_commitment, skill_tags, interested_directions, achievements, experience, contact, contact_hint, updated_at";
 const STUDENT_PROFILE_SELECT = "user_id, school, major, grade, skills, intro, portfolio, target_direction, contact";
 const MENTOR_PROFILE_SELECT =
   "user_id, school, college, lab, research_direction, support_types, support_method, open_status, intro, contact, application_notes";
 
-const demoMentorNames = new Set(["王海峰", "刘明远"]);
+const demoStudentNames = new Set(["林知夏", "宋一凡"]);
+const demoMentorNames = new Set(["王海峰", "刘静", "刘明远"]);
 const demoCaseTitles = new Set([
   "数学建模校队 7 天冲刺协作样例",
   "跨学科公益项目 Demo",
@@ -121,6 +123,22 @@ function buildRoleMap(roleRows?: Array<Record<string, unknown>> | null) {
   return roleMap;
 }
 
+function getProfileClient(mode: ReadMode) {
+  return mode === "session" ? getReadClient() : Promise.resolve(getPublicReadClient());
+}
+
+function stripDemoOpportunities(items: OpportunityDetail[]) {
+  return items.filter((item) => !item.isDemo);
+}
+
+function stripDemoTalents(items: TalentDetail[]) {
+  return items.filter((item) => !item.isDemo);
+}
+
+function stripDemoMentors(items: MentorCard[]) {
+  return items.filter((item) => !item.isDemo);
+}
+
 function getMentorOrganization(parts: Array<string | null | undefined>, fallback?: string) {
   const value = parts.filter(Boolean).join(" / ");
   return value || fallback || "";
@@ -151,7 +169,9 @@ function normalizeLegacyTalent(record: ProfileRecord): TalentDetail {
     achievements,
     contact: String(record.contact ?? ""),
     contactHint: String(record.contact_hint ?? "登录后可进一步联系。"),
-    isDemo: Boolean(record.is_demo),
+    isDemo:
+      demoStudentNames.has(String(record.name ?? "")) ||
+      demoStudentNames.has(String(record.nickname ?? "")),
   };
 }
 
@@ -191,7 +211,9 @@ function normalizeStudentProfile(
     achievements: Array.isArray(profile.achievements) ? (profile.achievements as string[]) : [],
     contact: String(studentProfile?.contact ?? profile.contact ?? ""),
     contactHint: String(profile.contact_hint ?? "登录后可进一步联系。"),
-    isDemo: Boolean(profile.is_demo),
+    isDemo:
+      demoStudentNames.has(String(profile.name ?? "")) ||
+      demoStudentNames.has(String(profile.nickname ?? "")),
   };
 }
 
@@ -257,7 +279,10 @@ function normalizeMentorProfile(
     lab,
     supportMethod: String(mentorProfile?.support_method ?? legacy?.supportMethod ?? ""),
     applicationNotes: String(mentorProfile?.application_notes ?? legacy?.applicationNotes ?? ""),
-    isDemo: Boolean(profile.is_demo) || demoMentorNames.has(String(profile.nickname ?? legacy?.name ?? "")),
+    isDemo:
+      demoMentorNames.has(String(profile.name ?? "")) ||
+      demoMentorNames.has(String(profile.nickname ?? "")) ||
+      demoMentorNames.has(String(legacy?.name ?? "")),
   };
 }
 
@@ -429,12 +454,13 @@ const getCachedOpportunities = unstable_cache(
 const getCachedTalents = unstable_cache(
   async (query: string, school: string, skill: string, limit: number) => {
     const supabase = getPublicReadClient();
+    const fetchLimit = limit + 6;
     let request = supabase
       .from("profiles")
       .select(PROFILE_SELECT)
       .eq("role", "student")
       .order("updated_at", { ascending: false })
-      .limit(limit);
+      .limit(fetchLimit);
 
     if (query) {
       const pattern = buildSearchPattern(query);
@@ -470,9 +496,11 @@ const getCachedTalents = unstable_cache(
       (studentProfiles ?? []).map((item) => [String((item as StudentProfileRecord).user_id), item as StudentProfileRecord]),
     );
 
-    return profiles.map((item) =>
-      normalizeStudentProfile(item as ProfileRecord, studentProfileMap.get(String(item.id)) ?? null),
-    );
+    return stripDemoTalents(
+      profiles.map((item) =>
+        normalizeStudentProfile(item as ProfileRecord, studentProfileMap.get(String(item.id)) ?? null),
+      ),
+    ).slice(0, limit);
   },
   ["public-talents"],
   { revalidate: 60, tags: ["talents"] },
@@ -481,11 +509,12 @@ const getCachedTalents = unstable_cache(
 const getCachedMentors = unstable_cache(
   async (query: string, school: string, skill: string, limit: number) => {
     const supabase = getPublicReadClient();
+    const fetchLimit = limit + 6;
     let request = supabase
       .from("mentors")
       .select("*")
       .order("created_at", { ascending: false })
-      .limit(limit);
+      .limit(fetchLimit);
 
     if (query) {
       const pattern = buildSearchPattern(query);
@@ -509,10 +538,38 @@ const getCachedMentors = unstable_cache(
       throw error ?? new Error("Failed to load mentors");
     }
 
-    return data.map((item) => normalizeLegacyMentor(item as LegacyMentorRecord));
+    return stripDemoMentors(data.map((item) => normalizeLegacyMentor(item as LegacyMentorRecord))).slice(0, limit);
   },
   ["public-mentors"],
   { revalidate: 60, tags: ["mentors"] },
+);
+
+const getCachedTalentPoolCounts = unstable_cache(
+  async () => {
+    const supabase = getPublicReadClient();
+    const [{ data: studentRows, error: studentError }, { data: mentorRows, error: mentorError }] = await Promise.all([
+      supabase.from("profiles").select("name, nickname").eq("role", "student"),
+      supabase.from("mentors").select("name"),
+    ]);
+
+    if (studentError || mentorError) {
+      throw studentError ?? mentorError ?? new Error("Failed to load talent pool counts");
+    }
+
+    const studentCount =
+      studentRows?.filter((item) => {
+        const name = String(item.name ?? "");
+        const nickname = String(item.nickname ?? "");
+        return !demoStudentNames.has(name) && !demoStudentNames.has(nickname);
+      }).length ?? 0;
+
+    const mentorCount =
+      mentorRows?.filter((item) => !demoMentorNames.has(String(item.name ?? ""))).length ?? 0;
+
+    return { studentCount, mentorCount };
+  },
+  ["public-talent-pool-counts"],
+  { revalidate: 60, tags: ["talents", "mentors"] },
 );
 
 const getCachedCases = unstable_cache(
@@ -549,15 +606,17 @@ export async function listOpportunities(filters: ListFilters = {}, options: List
   }
 
   try {
-    return await getCachedOpportunities(
+    return stripDemoOpportunities(
+      await getCachedOpportunities(
       normalizedFilters.query,
       normalizedFilters.type,
       normalizedFilters.school,
       normalizedFilters.skill,
       limit,
+      ),
     );
   } catch {
-    return filterOpportunities(mockOpportunities, normalizedFilters).slice(0, limit);
+    return [];
   }
 }
 
@@ -577,7 +636,11 @@ export async function getOpportunityById(id: string) {
       return null;
     }
 
-    return normalizeOpportunity(opportunity as Record<string, unknown>, buildRoleMap(roles as Array<Record<string, unknown>> | null).get(id) ?? []);
+    const normalized = normalizeOpportunity(
+      opportunity as Record<string, unknown>,
+      buildRoleMap(roles as Array<Record<string, unknown>> | null).get(id) ?? [],
+    );
+    return normalized.isDemo ? null : normalized;
   } catch {
     return null;
   }
@@ -601,21 +664,22 @@ export async function listTalents(filters: ListFilters = {}, options: ListOption
   } catch {
     try {
       const supabase = getPublicReadClient();
+      const fetchLimit = limit + 6;
       const { data, error } = await supabase
         .from("profiles")
         .select(PROFILE_SELECT)
         .eq("role", "student")
         .order("updated_at", { ascending: false })
-        .limit(limit);
+        .limit(fetchLimit);
 
       if (error || !data) {
-        return filterTalents(mockTalents, normalizedFilters).slice(0, limit);
+        return [];
       }
 
-      const normalized = data.map((item) => normalizeLegacyTalent(item as ProfileRecord));
+      const normalized = stripDemoTalents(data.map((item) => normalizeLegacyTalent(item as ProfileRecord)));
       return filterTalents(normalized, normalizedFilters).slice(0, limit);
     } catch {
-      return filterTalents(mockTalents, normalizedFilters).slice(0, limit);
+      return [];
     }
   }
 }
@@ -636,7 +700,11 @@ export async function getTalentById(id: string) {
       return null;
     }
 
-    return normalizeStudentProfile(profile as ProfileRecord, (studentProfile as StudentProfileRecord | null) ?? null);
+    const normalized = normalizeStudentProfile(
+      profile as ProfileRecord,
+      (studentProfile as StudentProfileRecord | null) ?? null,
+    );
+    return normalized.isDemo ? null : normalized;
   } catch {
     return null;
   }
@@ -658,7 +726,7 @@ export async function listMentors(filters: ListFilters = {}, options: ListOption
       limit,
     );
   } catch {
-    return filterMentors(mockMentors, normalizedFilters).slice(0, limit);
+    return [];
   }
 }
 
@@ -675,19 +743,30 @@ export async function getMentorById(id: string) {
       result = await supabase.from("mentors").select("*").eq("id", id).maybeSingle();
     }
 
-    return result.data ? normalizeLegacyMentor(result.data as LegacyMentorRecord) : null;
+    if (!result.data) {
+      return null;
+    }
+
+    const normalized = normalizeLegacyMentor(result.data as LegacyMentorRecord);
+    return normalized.isDemo ? null : normalized;
   } catch {
     return null;
   }
 }
 
 export async function listTalentPool(filters: ListFilters = {}, options: TalentPoolOptions = {}) {
-  const [students, mentors] = await Promise.all([
+  const [students, mentors, counts] = await Promise.all([
     listTalents(filters, { limit: options.studentLimit ?? DEFAULT_TALENT_LIMIT }),
     listMentors(filters, { limit: options.mentorLimit ?? DEFAULT_MENTOR_LIMIT }),
+    hasSupabaseEnv()
+      ? getCachedTalentPoolCounts().catch(() => ({ studentCount: 0, mentorCount: 0 }))
+      : Promise.resolve({
+          studentCount: stripDemoTalents(mockTalents).length,
+          mentorCount: stripDemoMentors(mockMentors).length,
+        }),
   ]);
 
-  return { students, mentors };
+  return { students, mentors, studentCount: counts.studentCount, mentorCount: counts.mentorCount };
 }
 
 export async function listCases() {
@@ -696,19 +775,19 @@ export async function listCases() {
   }
 
   try {
-    return await getCachedCases();
+    return (await getCachedCases()).filter((item) => !item.isDemo);
   } catch {
-    return mockCases;
+    return [];
   }
 }
 
-export async function getStudentProfileByUserId(userId: string) {
+export async function getStudentProfileByUserId(userId: string, mode: ReadMode = "session") {
   if (!hasSupabaseEnv()) {
     return mockTalents[0];
   }
 
   try {
-    const supabase = getPublicReadClient();
+    const supabase = await getProfileClient(mode);
     const [{ data: profile }, { data: studentProfile }] = await Promise.all([
       supabase.from("profiles").select(PROFILE_SELECT).eq("id", userId).maybeSingle(),
       supabase.from("student_profiles").select(STUDENT_PROFILE_SELECT).eq("user_id", userId).maybeSingle(),
@@ -721,7 +800,7 @@ export async function getStudentProfileByUserId(userId: string) {
     return normalizeStudentProfile(profile as ProfileRecord, (studentProfile as StudentProfileRecord | null) ?? null);
   } catch {
     try {
-      const supabase = getPublicReadClient();
+      const supabase = await getProfileClient(mode);
       const { data } = await supabase.from("profiles").select(PROFILE_SELECT).eq("id", userId).maybeSingle();
       return data ? normalizeLegacyTalent(data as ProfileRecord) : null;
     } catch {
@@ -730,13 +809,13 @@ export async function getStudentProfileByUserId(userId: string) {
   }
 }
 
-export async function getMentorProfileByUserId(userId: string) {
+export async function getMentorProfileByUserId(userId: string, mode: ReadMode = "session") {
   if (!hasSupabaseEnv()) {
     return mockMentors[0];
   }
 
   try {
-    const supabase = getPublicReadClient();
+    const supabase = await getProfileClient(mode);
     const [{ data: profile }, { data: mentorProfile }, { data: legacyMentor }] = await Promise.all([
       supabase.from("profiles").select(PROFILE_SELECT).eq("id", userId).maybeSingle(),
       supabase.from("mentor_profiles").select(MENTOR_PROFILE_SELECT).eq("user_id", userId).maybeSingle(),
@@ -754,7 +833,7 @@ export async function getMentorProfileByUserId(userId: string) {
     );
   } catch {
     try {
-      const supabase = getPublicReadClient();
+      const supabase = await getProfileClient(mode);
       let result = await supabase.from("mentors").select("*").eq("user_id", userId).maybeSingle();
 
       if (result.error) {
@@ -768,9 +847,13 @@ export async function getMentorProfileByUserId(userId: string) {
   }
 }
 
-export async function getPersonalShowcase(userId: string, role: AccountRole): Promise<PersonalShowcase | null> {
+export async function getPersonalShowcase(
+  userId: string,
+  role: AccountRole,
+  mode: ReadMode = "session",
+): Promise<PersonalShowcase | null> {
   if (role === "student") {
-    const profile = await getStudentProfileByUserId(userId);
+    const profile = await getStudentProfileByUserId(userId, mode);
     if (!profile) {
       return null;
     }
@@ -794,7 +877,7 @@ export async function getPersonalShowcase(userId: string, role: AccountRole): Pr
     };
   }
 
-  const mentor = await getMentorProfileByUserId(userId);
+  const mentor = await getMentorProfileByUserId(userId, mode);
   if (!mentor) {
     return null;
   }

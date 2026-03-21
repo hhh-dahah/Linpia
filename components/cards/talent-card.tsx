@@ -10,20 +10,15 @@ export function TalentCard({ item }: { item: TalentCardType }) {
           {item.name.slice(0, 1)}
         </div>
         <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-xl font-bold tracking-tight text-[var(--foreground)]">{item.name}</h3>
-            {item.isDemo ? (
-              <span className="rounded-full bg-[rgba(255,159,74,0.18)] px-3 py-1 text-xs font-semibold text-[#c26e25]">
-                示例
-              </span>
-            ) : null}
-          </div>
+          <h3 className="text-xl font-bold tracking-tight text-[var(--foreground)]">{item.name}</h3>
           <p className="mt-1 text-sm text-[var(--muted)]">
             {[item.school, item.major, item.grade].filter(Boolean).join(" · ") || "信息待补充"}
           </p>
         </div>
       </div>
+
       <p className="mt-4 text-sm leading-7 text-[var(--muted)]">{item.bio || "这个同学还在补充个人介绍。"}</p>
+
       <div className="mt-5 flex flex-wrap gap-2">
         {item.skills.length ? (
           item.skills.map((skill) => (
@@ -40,9 +35,12 @@ export function TalentCard({ item }: { item: TalentCardType }) {
           </span>
         )}
       </div>
+
       <div className="mt-5 text-sm text-[var(--muted)]">
-        可投入时间：<span className="font-medium text-[var(--foreground)]">{item.timeCommitment || "待沟通"}</span>
+        可投入时间：
+        <span className="font-medium text-[var(--foreground)]">{item.timeCommitment || "待沟通"}</span>
       </div>
+
       <div className="mt-6 flex items-center justify-between gap-4">
         <span className="text-sm font-medium text-[var(--foreground)]">
           感兴趣方向：{item.interestedDirections.join(" / ") || "待补充"}

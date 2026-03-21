@@ -8,6 +8,8 @@ import type { TalentDetail } from "@/types/profile";
 type HomeTalentPoolSectionProps = {
   mentors: MentorCardType[];
   students: TalentDetail[];
+  mentorCount: number;
+  studentCount: number;
 };
 
 const headingClassName =
@@ -16,6 +18,8 @@ const headingClassName =
 export function HomeTalentPoolSection({
   mentors,
   students,
+  mentorCount,
+  studentCount,
 }: HomeTalentPoolSectionProps) {
   return (
     <section id="talent-pool" className="space-y-5 scroll-mt-28">
@@ -41,8 +45,8 @@ export function HomeTalentPoolSection({
             <p className={headingClassName}>愿意提供方向、资源或带队支持的导师</p>
           </div>
 
-          <span className="hidden rounded-full bg-[rgba(255,159,74,0.12)] px-3 py-1 text-[0.84rem] font-semibold text-[#c26e25] sm:inline-flex">
-            共 {mentors.length} 位
+          <span className="rounded-full bg-[rgba(255,159,74,0.12)] px-3 py-1 text-[0.84rem] font-semibold text-[#c26e25]">
+            共 {mentorCount} 位
           </span>
         </div>
 
@@ -54,11 +58,9 @@ export function HomeTalentPoolSection({
           </div>
         ) : (
           <div className="surface-panel rounded-[2rem] p-8 text-center">
-            <h2 className="text-[1.75rem] font-bold text-[var(--foreground)]">
-              当前还没有可展示的导师资料
-            </h2>
+            <h2 className="text-[1.75rem] font-bold text-[var(--foreground)]">当前还没有可展示的导师资料</h2>
             <p className="mt-2 text-[0.95rem] text-[var(--muted)]">
-              导师入驻后会出现在这里，也可以先完善自己的资料，方便后续展示技能。
+              导师入驻后会出现在这里。
             </p>
           </div>
         )}
@@ -73,8 +75,8 @@ export function HomeTalentPoolSection({
             <p className={headingClassName}>正在展示技能、找方向或准备加入队伍的学生</p>
           </div>
 
-          <span className="hidden rounded-full bg-[rgba(36,107,250,0.08)] px-3 py-1 text-[0.84rem] font-semibold text-[var(--primary)] sm:inline-flex">
-            共 {students.length} 人
+          <span className="rounded-full bg-[rgba(36,107,250,0.08)] px-3 py-1 text-[0.84rem] font-semibold text-[var(--primary)]">
+            共 {studentCount} 人
           </span>
         </div>
 
@@ -86,9 +88,7 @@ export function HomeTalentPoolSection({
           </div>
         ) : (
           <div className="surface-panel rounded-[2rem] p-8 text-center">
-            <h2 className="text-[1.75rem] font-bold text-[var(--foreground)]">
-              当前还没有可展示的学生资料
-            </h2>
+            <h2 className="text-[1.75rem] font-bold text-[var(--foreground)]">当前还没有可展示的学生资料</h2>
             <p className="mt-2 text-[0.95rem] text-[var(--muted)]">
               先完善个人资料后，你的技能展示也会出现在这里。
             </p>

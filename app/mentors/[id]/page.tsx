@@ -38,11 +38,6 @@ export default async function MentorDetailPage({ params }: MentorDetailPageProps
               >
                 {mentor.isOpen ? "开放申请" : "暂未开放"}
               </span>
-              {mentor.isDemo ? (
-                <span className="rounded-full bg-[rgba(255,159,74,0.18)] px-3 py-1 text-xs font-semibold text-[#c26e25]">
-                  示例
-                </span>
-              ) : null}
             </div>
 
             <h2 className="mt-5 text-xl font-bold text-[var(--foreground)]">研究方向与支持方式</h2>
@@ -81,7 +76,7 @@ export default async function MentorDetailPage({ params }: MentorDetailPageProps
             <div className="mt-4 space-y-3 text-sm leading-7 text-[var(--muted)]">
               <p>申请说明：{mentor.applicationNotes || "暂未填写"}</p>
               <p>联系方式：{mentor.contactMode || "暂未填写"}</p>
-              <p>组织：{mentor.organization || "暂未填写"}</p>
+              <p>组织信息：{mentor.organization || "暂未填写"}</p>
             </div>
           </div>
         </div>
@@ -89,7 +84,7 @@ export default async function MentorDetailPage({ params }: MentorDetailPageProps
         <aside className="surface-panel rounded-[2rem] p-6">
           <h2 className="text-xl font-bold text-[var(--foreground)]">下一步建议</h2>
           <p className="mt-4 text-sm leading-8 text-[var(--muted)]">
-            如果你对这位导师的方向感兴趣，可以先回到招募池查看是否有开放中的导师招募，也可以先完善自己的个人资料再去申请合作。
+            如果你对这位导师的方向感兴趣，可以先回到招募池看看是否有开放中的导师招募，也可以先完善自己的个人资料再去申请合作。
           </p>
           <div className="mt-6 flex flex-col gap-3">
             <Link href="/opportunities" className="ui-button-primary px-5 py-3 text-center font-semibold">

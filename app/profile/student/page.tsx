@@ -26,22 +26,22 @@ export default async function StudentProfilePage({ searchParams }: StudentProfil
     redirect(`/onboarding/role?next=${encodeURIComponent(nextPath)}`);
   }
 
-  const profile = await getStudentProfileByUserId(user.id);
+  const profile = await getStudentProfileByUserId(user.id, "session");
 
   return (
     <FormShell
       eyebrow="学生资料"
       title="把你的基础信息和想加入的方向挂出来"
-      description="不用等到自己非常完整再来填。先把学校、方向、经历和联系方式写清楚，别人就更容易判断怎么和你合作。"
-      asideTitle="这页会影响什么"
-      asideDescription="学生资料保存后，你的个人资料页和技能展示都会更新，也能更顺畅地报名合作或继续发招募。"
+      description="不用等到非常完整再来填。先把学校、方向、经历和联系方式写清楚，别人就更容易判断怎么和你合作。"
+      asideTitle="这一页会影响什么"
+      asideDescription="学生资料保存后，你的个人主页和首页人才池都会同步更新，别人也能更快看懂你会什么、想做什么。"
       tips={[
         "技能标签可以先少填，后面再慢慢补。",
         "比赛 / 项目经历尽量写具体一点。",
-        "联系方式建议写清楚别人怎样联系你最方便。",
+        "联系方式建议写清楚别人怎么联系你最方便。",
       ]}
     >
-      <ProfileForm profile={profile} />
+      <ProfileForm profile={profile} draftStorageKey={`linpai:profile-draft:student:${user.id}`} />
     </FormShell>
   );
 }

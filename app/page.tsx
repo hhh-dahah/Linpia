@@ -109,6 +109,8 @@ export default async function HomePage() {
       <HomeTalentPoolSection
         mentors={homeTalentPool.mentors}
         students={homeTalentPool.students}
+        mentorCount={homeTalentPool.mentorCount}
+        studentCount={homeTalentPool.studentCount}
       />
     </div>
   );

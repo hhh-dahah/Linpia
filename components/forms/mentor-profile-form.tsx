@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 
 import { saveMentorProfileAction } from "@/app/actions";
 import { mentorSupportMethods, mentorSupportScopes, skillOptions } from "@/constants";
@@ -27,11 +27,8 @@ type MentorProfileFormValues = {
   isOpen: boolean;
 };
 
-export function MentorProfileForm({ profile }: { profile?: MentorCard | null }) {
-  const [isPending, startTransition] = useTransition();
-  const [serverState, setServerState] = useState<ActionState>(initialActionState);
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const [values, setValues] = useState<MentorProfileFormValues>({
+function getInitialValues(profile?: MentorCard | null): MentorProfileFormValues {
+  return {
     name: profile?.name || "",
     school: profile?.school || "",
     college: profile?.college || "",
@@ -44,7 +41,60 @@ export function MentorProfileForm({ profile }: { profile?: MentorCard | null }) 
     contactMode: profile?.contactMode || "",
     applicationNotes: profile?.applicationNotes || "",
     isOpen: profile?.isOpen ?? true,
-  });
+  };
+}
+
+export function MentorProfileForm({
+  profile,
+  draftStorageKey,
+}: {
+  profile?: MentorCard | null;
+  draftStorageKey?: string;
+}) {
+  const [isPending, startTransition] = useTransition();
+  const [serverState, setServerState] = useState<ActionState>(initialActionState);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [values, setValues] = useState<MentorProfileFormValues>(() => getInitialValues(profile));
+  const [draftReady, setDraftReady] = useState(false);
+
+  useEffect(() => {
+    if (!draftStorageKey) {
+      setDraftReady(true);
+      return;
+    }
+
+    try {
+      const raw = window.localStorage.getItem(draftStorageKey);
+      if (raw) {
+        const parsed = JSON.parse(raw) as Partial<MentorProfileFormValues>;
+        setValues((current) => ({
+          ...current,
+          ...parsed,
+          directionTags: Array.isArray(parsed.directionTags) ? parsed.directionTags : current.directionTags,
+          supportScope: Array.isArray(parsed.supportScope) ? parsed.supportScope : current.supportScope,
+          isOpen: typeof parsed.isOpen === "boolean" ? parsed.isOpen : current.isOpen,
+        }));
+      }
+    } catch {
+      window.localStorage.removeItem(draftStorageKey);
+    } finally {
+      setDraftReady(true);
+    }
+  }, [draftStorageKey]);
+
+  useEffect(() => {
+    if (!draftStorageKey || !draftReady) {
+      return;
+    }
+
+    window.localStorage.setItem(draftStorageKey, JSON.stringify(values));
+  }, [draftReady, draftStorageKey, values]);
+
+  useEffect(() => {
+    if (serverState.status === "success" && draftStorageKey) {
+      window.localStorage.removeItem(draftStorageKey);
+    }
+  }, [draftStorageKey, serverState.status]);
 
   const selectedDirections = useMemo(() => new Set(values.directionTags), [values.directionTags]);
   const selectedSupportScope = useMemo(() => new Set(values.supportScope), [values.supportScope]);
@@ -77,7 +127,7 @@ export function MentorProfileForm({ profile }: { profile?: MentorCard | null }) 
         }
       });
       setFieldErrors(nextErrors);
-      setServerState({ status: "error", message: "还有信息没填完整，请按提示修改。" });
+      setServerState({ status: "error", message: "导师资料还有几项没填好，请按提示修改。" });
       scrollToFirstError(nextErrors);
       return;
     }
@@ -124,7 +174,7 @@ export function MentorProfileForm({ profile }: { profile?: MentorCard | null }) 
             value={values.organization}
             onChange={(event) => setValue("organization", event.target.value)}
             className="field-base"
-            placeholder="例如：兰州交通大学 AI+设计工作室"
+            placeholder="例如：兰州交通大学 / AI 实验室"
           />
           <FieldError message={fieldErrors.organization} />
         </label>
@@ -149,7 +199,7 @@ export function MentorProfileForm({ profile }: { profile?: MentorCard | null }) 
             value={values.college}
             onChange={(event) => setValue("college", event.target.value)}
             className="field-base"
-            placeholder="例如：机电学院"
+            placeholder="例如：计算机学院"
           />
         </label>
 
@@ -160,7 +210,7 @@ export function MentorProfileForm({ profile }: { profile?: MentorCard | null }) 
             value={values.lab}
             onChange={(event) => setValue("lab", event.target.value)}
             className="field-base"
-            placeholder="例如：机器人实验室"
+            placeholder="例如：机器视觉实验室"
           />
         </label>
       </div>

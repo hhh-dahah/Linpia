@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 
 import { saveProfileAction } from "@/app/actions";
 import { studentDirectionOptions, schools, skillOptions, timeCommitmentOptions } from "@/constants";
@@ -27,11 +27,8 @@ type ProfileFormValues = {
   contact: string;
 };
 
-export function ProfileForm({ profile }: { profile?: TalentDetail | null }) {
-  const [isPending, startTransition] = useTransition();
-  const [serverState, setServerState] = useState<ActionState>(initialActionState);
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const [values, setValues] = useState<ProfileFormValues>({
+function getInitialValues(profile?: TalentDetail | null): ProfileFormValues {
+  return {
     name: profile?.name || "",
     school: profile?.school || "",
     major: profile?.major || "",
@@ -43,7 +40,61 @@ export function ProfileForm({ profile }: { profile?: TalentDetail | null }) {
     portfolioExternalUrl: profile?.portfolioExternalUrl || "",
     experience: profile?.experience || "",
     contact: profile?.contact || "",
-  });
+  };
+}
+
+export function ProfileForm({
+  profile,
+  draftStorageKey,
+}: {
+  profile?: TalentDetail | null;
+  draftStorageKey?: string;
+}) {
+  const [isPending, startTransition] = useTransition();
+  const [serverState, setServerState] = useState<ActionState>(initialActionState);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [values, setValues] = useState<ProfileFormValues>(() => getInitialValues(profile));
+  const [draftReady, setDraftReady] = useState(false);
+
+  useEffect(() => {
+    if (!draftStorageKey) {
+      setDraftReady(true);
+      return;
+    }
+
+    try {
+      const raw = window.localStorage.getItem(draftStorageKey);
+      if (raw) {
+        const parsed = JSON.parse(raw) as Partial<ProfileFormValues>;
+        setValues((current) => ({
+          ...current,
+          ...parsed,
+          skillTags: Array.isArray(parsed.skillTags) ? parsed.skillTags : current.skillTags,
+          interestedDirections: Array.isArray(parsed.interestedDirections)
+            ? parsed.interestedDirections
+            : current.interestedDirections,
+        }));
+      }
+    } catch {
+      window.localStorage.removeItem(draftStorageKey);
+    } finally {
+      setDraftReady(true);
+    }
+  }, [draftStorageKey]);
+
+  useEffect(() => {
+    if (!draftStorageKey || !draftReady) {
+      return;
+    }
+
+    window.localStorage.setItem(draftStorageKey, JSON.stringify(values));
+  }, [draftReady, draftStorageKey, values]);
+
+  useEffect(() => {
+    if (serverState.status === "success" && draftStorageKey) {
+      window.localStorage.removeItem(draftStorageKey);
+    }
+  }, [draftStorageKey, serverState.status]);
 
   const selectedSkills = useMemo(() => new Set(values.skillTags), [values.skillTags]);
   const selectedDirections = useMemo(
@@ -86,7 +137,7 @@ export function ProfileForm({ profile }: { profile?: TalentDetail | null }) {
         }
       });
       setFieldErrors(nextErrors);
-      setServerState({ status: "error", message: "还有信息没填完整，请按提示修改。" });
+      setServerState({ status: "error", message: "学生资料还有几项没填好，请按提示修改。" });
       scrollToFirstError(nextErrors);
       return;
     }
