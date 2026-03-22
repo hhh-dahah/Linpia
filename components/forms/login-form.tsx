@@ -238,7 +238,7 @@ export function LoginForm({ nextPath, initialState }: LoginFormProps) {
 
   return (
     <div className="space-y-6">
-      <div className="inline-flex rounded-full border border-[var(--line)] bg-[var(--surface-muted)] p-1">
+                <div className="inline-flex rounded-full border border-line bg-surface-muted p-1">
         <button
           type="button"
           onClick={() => {
@@ -420,7 +420,7 @@ export function LoginForm({ nextPath, initialState }: LoginFormProps) {
               type="email"
               value={values.email}
               readOnly
-              className="field-base bg-[var(--surface-muted)]"
+                          className="field-base bg-surface-muted"
             />
           </label>
 

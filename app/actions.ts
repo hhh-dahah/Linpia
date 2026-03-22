@@ -9,11 +9,14 @@ import {
   getCurrentUser,
   isAdminEmail,
 } from "@/lib/auth";
+import { canManageAdmins, getCurrentAdminUser } from "@/lib/admin";
+import { findAuthUserByEmail } from "@/lib/admin-data";
 import { hasServiceRoleEnv, hasSupabaseEnv } from "@/lib/env";
 import { uploadImage } from "@/lib/storage";
 import { createAdminSupabaseClient } from "@/supabase/admin";
 import { createServerSupabaseClient } from "@/supabase/server";
 import type { ActionState } from "@/types/action";
+import type { AdminApplicationStatus, AdminRole, VisibilityStatus } from "@/types/admin";
 import { applicationSchema } from "@/validators/application";
 import { caseSchema } from "@/validators/case";
 import { mentorSchema } from "@/validators/mentor";
@@ -90,6 +93,98 @@ function buildMentorContactBundle(payload: {
   ]
     .filter(Boolean)
     .join("\n");
+}
+
+async function syncDirectoryPersonRecord(
+  client: Awaited<ReturnType<typeof getWriteClient>>,
+  payload: {
+    id: string;
+    role: "student" | "mentor";
+    source?: "registered" | "managed";
+    name: string;
+    authUserId?: string | null;
+    school?: string;
+    major?: string;
+    grade?: string;
+    college?: string;
+    lab?: string;
+    bio?: string;
+    skills?: string[];
+    interestedDirections?: string[];
+    researchDirection?: string;
+    supportTypes?: string[];
+    supportMethod?: string;
+    openStatus?: boolean;
+    contact?: string;
+    avatarPath?: string | null;
+    portfolioUrl?: string | null;
+    visibilityStatus?: VisibilityStatus;
+    createdByAdminId?: string | null;
+    updatedByAdminId?: string | null;
+    archivedAt?: string | null;
+  },
+) {
+  const { error } = await client.from("directory_people").upsert(
+    {
+      id: payload.id,
+      auth_user_id: payload.authUserId ?? null,
+      source: payload.source ?? "registered",
+      role: payload.role,
+      name: payload.name,
+      school: payload.school || null,
+      major: payload.major || null,
+      grade: payload.grade || null,
+      college: payload.college || null,
+      lab: payload.lab || null,
+      bio: payload.bio || null,
+      skills: payload.skills ?? [],
+      interested_directions: payload.interestedDirections ?? [],
+      research_direction: payload.researchDirection || null,
+      support_types: payload.supportTypes ?? [],
+      support_method: payload.supportMethod || null,
+      open_status: payload.openStatus ?? false,
+      contact: payload.contact || null,
+      avatar_path: payload.avatarPath ?? null,
+      portfolio_url: payload.portfolioUrl ?? null,
+      visibility_status: payload.visibilityStatus ?? "active",
+      created_by_admin_id: payload.createdByAdminId ?? null,
+      updated_by_admin_id: payload.updatedByAdminId ?? null,
+      archived_at: payload.archivedAt ?? null,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "id" },
+  );
+
+  if (error && !/relation .*directory_people.* does not exist/i.test(error.message)) {
+    throw error;
+  }
+}
+
+async function requireAdminAction(role: AdminRole | "any" = "any") {
+  const currentUser = await getCurrentUser();
+  if (!currentUser) {
+    throw new Error("请先登录后再进入后台。");
+  }
+
+  const adminUser = await getCurrentAdminUser();
+  if (!adminUser) {
+    throw new Error("当前账号没有后台权限。");
+  }
+
+  if (role !== "any" && adminUser.role !== role) {
+    throw new Error("当前账号没有执行该操作的权限。");
+  }
+
+  const client = await getWriteClient();
+  return { currentUser, adminUser, client };
+}
+
+function revalidateAdminPages() {
+  revalidatePath("/admin");
+  revalidatePath("/admin/people");
+  revalidatePath("/admin/opportunities");
+  revalidatePath("/admin/applications");
+  revalidatePath("/admin/admin-users");
 }
 
 function getRoleCompletion(payload: {
@@ -345,6 +440,24 @@ export async function saveProfileAction(_: ActionState, formData: FormData): Pro
       return { status: "error", message: "学生资料保存失败，请稍后再试。" };
     }
 
+    await syncDirectoryPersonRecord(client, {
+      id: user.id,
+      authUserId: user.id,
+      source: "registered",
+      role: "student",
+      name: parsed.data.name,
+      school: parsed.data.school,
+      major: parsed.data.major,
+      grade: parsed.data.grade,
+      bio: parsed.data.bio,
+      skills: parsed.data.skillTags,
+      interestedDirections: parsed.data.interestedDirections,
+      contact: parsed.data.contact,
+      avatarPath,
+      portfolioUrl: parsed.data.portfolioExternalUrl || null,
+      visibilityStatus: "active",
+    });
+
     await syncLegacyUserRole(user.id, "student");
 
     revalidatePath("/profile");
@@ -352,6 +465,7 @@ export async function saveProfileAction(_: ActionState, formData: FormData): Pro
     revalidatePath("/dashboard");
     revalidatePath("/");
     revalidatePath("/talent");
+    revalidatePath("/admin/people");
     revalidateTag("talents", "max");
 
     return { status: "success", message: "学生资料已保存。" };
@@ -482,6 +596,25 @@ export async function saveMentorProfileAction(
       return { status: "error", message: "导师资料保存失败，请稍后再试。" };
     }
 
+    await syncDirectoryPersonRecord(client, {
+      id: user.id,
+      authUserId: user.id,
+      source: "registered",
+      role: "mentor",
+      name: parsed.data.name,
+      school: parsed.data.school,
+      college: parsed.data.college,
+      lab: parsed.data.lab,
+      bio: parsed.data.direction,
+      skills: parsed.data.directionTags,
+      researchDirection: parsed.data.direction,
+      supportTypes: parsed.data.supportScope,
+      supportMethod: parsed.data.supportMethod,
+      openStatus: parsed.data.isOpen,
+      contact: parsed.data.contactMode,
+      visibilityStatus: "active",
+    });
+
     await syncLegacyUserRole(user.id, "mentor");
 
     revalidatePath("/profile");
@@ -490,6 +623,7 @@ export async function saveMentorProfileAction(
     revalidatePath("/");
     revalidatePath("/talent");
     revalidatePath("/mentors");
+    revalidatePath("/admin/people");
     revalidateTag("mentors", "max");
 
     return { status: "success", message: "导师资料已保存。" };
@@ -863,5 +997,233 @@ export async function saveCaseAction(_: ActionState, formData: FormData): Promis
       status: "error",
       message: error instanceof Error ? error.message : "案例录入失败，请稍后再试。",
     };
+  }
+}
+
+export async function saveAdminPersonAction(formData: FormData) {
+  try {
+    const { adminUser, client } = await requireAdminAction();
+    const personId = String(formData.get("personId") ?? "").trim() || crypto.randomUUID();
+    const role = String(formData.get("role") ?? "");
+    const visibilityStatus = String(formData.get("visibilityStatus") ?? "active") as VisibilityStatus;
+
+    if (role !== "student" && role !== "mentor") {
+      throw new Error("请选择人员身份。");
+    }
+
+    await syncDirectoryPersonRecord(client, {
+      id: personId,
+      authUserId: String(formData.get("authUserId") ?? "").trim() || null,
+      source: (String(formData.get("source") ?? "managed") === "registered" ? "registered" : "managed"),
+      role,
+      name: String(formData.get("name") ?? "").trim() || "未命名成员",
+      school: String(formData.get("school") ?? "").trim(),
+      major: String(formData.get("major") ?? "").trim(),
+      grade: String(formData.get("grade") ?? "").trim(),
+      college: String(formData.get("college") ?? "").trim(),
+      lab: String(formData.get("lab") ?? "").trim(),
+      bio: String(formData.get("bio") ?? "").trim(),
+      skills: formData.getAll("skills").map(String).filter(Boolean),
+      interestedDirections: formData.getAll("interestedDirections").map(String).filter(Boolean),
+      researchDirection: String(formData.get("researchDirection") ?? "").trim(),
+      supportTypes: formData.getAll("supportTypes").map(String).filter(Boolean),
+      supportMethod: String(formData.get("supportMethod") ?? "").trim(),
+      openStatus: formData.get("openStatus") === "on",
+      contact: String(formData.get("contact") ?? "").trim(),
+      avatarPath: String(formData.get("avatarPath") ?? "").trim() || null,
+      portfolioUrl: String(formData.get("portfolioUrl") ?? "").trim() || null,
+      visibilityStatus,
+      updatedByAdminId: adminUser.id,
+      createdByAdminId: adminUser.id,
+      archivedAt: visibilityStatus === "archived" ? new Date().toISOString() : null,
+    });
+
+    revalidateAdminPages();
+    revalidatePath("/");
+    revalidatePath("/talent");
+    revalidatePath("/mentors");
+    revalidateTag("talents", "max");
+    revalidateTag("mentors", "max");
+    return;
+  } catch (error) {
+    redirect(`/admin/people?error=${encodeURIComponent(error instanceof Error ? error.message : "保存失败")}`);
+  }
+}
+
+export async function updateAdminPersonVisibilityAction(formData: FormData) {
+  try {
+    const { adminUser, client } = await requireAdminAction();
+    const personId = String(formData.get("personId") ?? "");
+    const visibilityStatus = String(formData.get("visibilityStatus") ?? "active") as VisibilityStatus;
+
+    const { error } = await client
+      .from("directory_people")
+      .update({
+        visibility_status: visibilityStatus,
+        archived_at: visibilityStatus === "archived" ? new Date().toISOString() : null,
+        updated_by_admin_id: adminUser.id,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", personId);
+
+    if (error) {
+      throw error;
+    }
+
+    revalidateAdminPages();
+    revalidatePath("/");
+    revalidatePath("/talent");
+    revalidatePath("/mentors");
+    revalidateTag("talents", "max");
+    revalidateTag("mentors", "max");
+    return;
+  } catch (error) {
+    redirect(`/admin/people?error=${encodeURIComponent(error instanceof Error ? error.message : "更新失败")}`);
+  }
+}
+
+export async function saveAdminOpportunityAction(formData: FormData) {
+  try {
+    await requireAdminAction();
+    const opportunityId = String(formData.get("opportunityId") ?? "");
+    const payload = {
+      title: String(formData.get("title") ?? "").trim(),
+      type: String(formData.get("type") ?? "").trim(),
+      organization: String(formData.get("organization") ?? "").trim(),
+      summary: String(formData.get("summary") ?? "").trim(),
+      deadline: String(formData.get("deadline") ?? "").trim(),
+      status: String(formData.get("status") ?? "").trim(),
+      visibility_status: String(formData.get("visibilityStatus") ?? "active").trim(),
+      archived_at: String(formData.get("visibilityStatus") ?? "active").trim() === "archived" ? new Date().toISOString() : null,
+      updated_at: new Date().toISOString(),
+    };
+
+    const client = await getWriteClient();
+    const { error } = await client.from("opportunities").update(payload).eq("id", opportunityId);
+    if (error) {
+      throw error;
+    }
+
+    revalidateAdminPages();
+    revalidatePath("/opportunities");
+    revalidateTag("opportunities", "max");
+    return;
+  } catch (error) {
+    redirect(`/admin/opportunities?error=${encodeURIComponent(error instanceof Error ? error.message : "保存失败")}`);
+  }
+}
+
+export async function updateAdminOpportunityVisibilityAction(formData: FormData) {
+  try {
+    await requireAdminAction();
+    const opportunityId = String(formData.get("opportunityId") ?? "");
+    const visibilityStatus = String(formData.get("visibilityStatus") ?? "active").trim();
+    const client = await getWriteClient();
+    const { error } = await client
+      .from("opportunities")
+      .update({
+        visibility_status: visibilityStatus,
+        archived_at: visibilityStatus === "archived" ? new Date().toISOString() : null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", opportunityId);
+
+    if (error) {
+      throw error;
+    }
+
+    revalidateAdminPages();
+    revalidatePath("/opportunities");
+    revalidateTag("opportunities", "max");
+    return;
+  } catch (error) {
+    redirect(`/admin/opportunities?error=${encodeURIComponent(error instanceof Error ? error.message : "更新失败")}`);
+  }
+}
+
+export async function updateAdminApplicationStatusAction(formData: FormData) {
+  try {
+    await requireAdminAction();
+    const applicationId = String(formData.get("applicationId") ?? "");
+    const status = String(formData.get("status") ?? "") as AdminApplicationStatus;
+    if (!["待查看", "沟通中", "已通过", "未通过"].includes(status)) {
+      throw new Error("请选择有效的报名状态。");
+    }
+
+    const client = await getWriteClient();
+    const { error } = await client.from("applications").update({ status }).eq("id", applicationId);
+    if (error) {
+      throw error;
+    }
+
+    revalidateAdminPages();
+    revalidatePath("/dashboard");
+    return;
+  } catch (error) {
+    redirect(`/admin/applications?error=${encodeURIComponent(error instanceof Error ? error.message : "更新失败")}`);
+  }
+}
+
+export async function saveAdminUserAction(formData: FormData) {
+  try {
+    const { adminUser, client } = await requireAdminAction();
+    if (!canManageAdmins(adminUser.role)) {
+      throw new Error("只有超级管理员可以管理后台账号。");
+    }
+
+    const email = String(formData.get("email") ?? "").trim().toLowerCase();
+    const role = String(formData.get("role") ?? "operator") as AdminRole;
+    const authUser = await findAuthUserByEmail(email);
+    if (!authUser) {
+      throw new Error("这个邮箱还没有注册平台账号，请先让对方登录一次。");
+    }
+
+    const { error } = await client.from("admin_users").upsert(
+      {
+        user_id: authUser.id,
+        role,
+        is_active: true,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id" },
+    );
+
+    if (error) {
+      throw error;
+    }
+
+    revalidateAdminPages();
+    return;
+  } catch (error) {
+    redirect(`/admin/admin-users?error=${encodeURIComponent(error instanceof Error ? error.message : "保存失败")}`);
+  }
+}
+
+export async function toggleAdminUserActiveAction(formData: FormData) {
+  try {
+    const { currentUser, adminUser, client } = await requireAdminAction();
+    if (!canManageAdmins(adminUser.role)) {
+      throw new Error("只有超级管理员可以管理后台账号。");
+    }
+
+    const userId = String(formData.get("userId") ?? "");
+    const isActive = formData.get("isActive") === "true";
+    if (currentUser.id === userId && !isActive) {
+      throw new Error("不能停用当前登录的超级管理员。");
+    }
+
+    const { error } = await client
+      .from("admin_users")
+      .update({ is_active: isActive, updated_at: new Date().toISOString() })
+      .eq("user_id", userId);
+
+    if (error) {
+      throw error;
+    }
+
+    revalidateAdminPages();
+    return;
+  } catch (error) {
+    redirect(`/admin/admin-users?error=${encodeURIComponent(error instanceof Error ? error.message : "更新失败")}`);
   }
 }

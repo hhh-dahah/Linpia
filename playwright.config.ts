@@ -5,7 +5,10 @@ import { defineConfig, devices } from "@playwright/test";
 
 dotenv.config({ path: path.resolve(process.cwd(), ".env.local") });
 
-const baseURL = process.env.NEXT_PUBLIC_APP_URL || "http://127.0.0.1:3000";
+const baseURL =
+  process.env.PLAYWRIGHT_BASE_URL ||
+  process.env.BASE_URL ||
+  "http://localhost:3000";
 
 export default defineConfig({
   testDir: "./tests/e2e",

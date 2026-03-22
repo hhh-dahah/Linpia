@@ -302,6 +302,11 @@ export async function getUserFlowState(): Promise<UserFlowState> {
 export async function resolvePostAuthRedirect(nextPath = "/") {
   const normalizedNext = sanitizeNextPath(nextPath);
 
+  if (normalizedNext.startsWith("/admin")) {
+    const user = await getCurrentUser();
+    return user ? normalizedNext : withNext("/login", normalizedNext);
+  }
+
   if (normalizedNext.startsWith("/reset-password")) {
     return normalizedNext;
   }

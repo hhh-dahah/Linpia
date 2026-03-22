@@ -10,7 +10,7 @@ export async function SiteHeader() {
   const identity = user ? await getDisplayIdentity(user) : null;
 
   return (
-    <header className="sticky top-0 z-40 border-b border-[var(--line)] bg-[rgba(255,255,255,0.72)] backdrop-blur-2xl">
+    <header className="sticky top-0 z-40 border-b border-line bg-[rgba(255,255,255,0.72)] backdrop-blur-2xl">
       <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 sm:px-6 lg:px-8">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <Link href="/" prefetch className="flex min-w-0 items-center gap-3">

@@ -151,6 +151,48 @@ create table if not exists public.cases (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.admin_users (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null unique references auth.users (id) on delete cascade,
+  role text not null default 'operator' check (role in ('super_admin', 'operator')),
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.directory_people (
+  id uuid primary key default gen_random_uuid(),
+  auth_user_id uuid unique references auth.users (id) on delete set null,
+  source text not null default 'managed' check (source in ('registered', 'managed')),
+  role text not null check (role in ('student', 'mentor')),
+  name text not null,
+  school text,
+  major text,
+  grade text,
+  college text,
+  lab text,
+  bio text,
+  skills text[] not null default '{}',
+  interested_directions text[] not null default '{}',
+  research_direction text,
+  support_types text[] not null default '{}',
+  support_method text,
+  open_status boolean not null default false,
+  contact text,
+  avatar_path text,
+  portfolio_url text,
+  visibility_status text not null default 'active' check (visibility_status in ('active', 'hidden', 'archived')),
+  created_by_admin_id uuid references public.admin_users (id) on delete set null,
+  updated_by_admin_id uuid references public.admin_users (id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  archived_at timestamptz
+);
+
+alter table public.opportunities
+  add column if not exists visibility_status text not null default 'active' check (visibility_status in ('active', 'hidden', 'archived')),
+  add column if not exists archived_at timestamptz;
+
 create index if not exists idx_profiles_role on public.profiles (role);
 create index if not exists idx_student_profiles_user_id on public.student_profiles (user_id);
 create index if not exists idx_mentor_profiles_user_id on public.mentor_profiles (user_id);
@@ -166,6 +208,11 @@ create index if not exists idx_applications_opportunity_id_created_at_desc on pu
 create index if not exists idx_profiles_role_updated_at_desc on public.profiles (role, updated_at desc);
 create index if not exists idx_mentors_user_id on public.mentors (user_id);
 create index if not exists idx_mentors_created_at_desc on public.mentors (created_at desc);
+create index if not exists idx_admin_users_user_id on public.admin_users (user_id);
+create index if not exists idx_directory_people_role_updated_at on public.directory_people (role, updated_at desc);
+create index if not exists idx_directory_people_visibility_role on public.directory_people (visibility_status, role);
+create index if not exists idx_directory_people_auth_user_id on public.directory_people (auth_user_id);
+create index if not exists idx_opportunities_visibility_created_at on public.opportunities (visibility_status, created_at desc);
 
 alter table public.profiles enable row level security;
 alter table public.student_profiles enable row level security;
@@ -175,6 +222,8 @@ alter table public.opportunity_roles enable row level security;
 alter table public.applications enable row level security;
 alter table public.mentors enable row level security;
 alter table public.cases enable row level security;
+alter table public.admin_users enable row level security;
+alter table public.directory_people enable row level security;
 
 drop policy if exists "public can read profiles" on public.profiles;
 create policy "public can read profiles"
@@ -284,6 +333,10 @@ with check (auth.uid() = user_id);
 drop policy if exists "public can read cases" on public.cases;
 create policy "public can read cases"
 on public.cases for select using (true);
+
+drop policy if exists "public can read active directory people" on public.directory_people;
+create policy "public can read active directory people"
+on public.directory_people for select using (visibility_status = 'active');
 
 insert into storage.buckets (id, name, public)
 values

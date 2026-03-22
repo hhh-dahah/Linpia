@@ -79,7 +79,7 @@ test.describe("身份、资料闭环与发布流程", () => {
 
       await page.goto("/#talent-pool");
       await page.locator("#mentor-section").scrollIntoViewIfNeeded();
-      await expect(page.getByText(uniqueName)).toBeVisible();
+      await expect(page.locator("#mentor-section").getByText(uniqueName)).toBeVisible();
     } finally {
       await deleteUser(user.id);
     }

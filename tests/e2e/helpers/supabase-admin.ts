@@ -115,6 +115,22 @@ export async function seedStudentProfile(user: SeededUser, options?: { completed
   if (studentError && !/relation .*student_profiles.* does not exist/i.test(studentError.message)) {
     throw new Error(studentError.message);
   }
+
+  await admin.from("directory_people").upsert({
+    id: user.id,
+    auth_user_id: user.id,
+    source: "registered",
+    role: "student",
+    name: "测试学生",
+    school: completed ? "兰州交通大学" : null,
+    major: completed ? "软件工程" : null,
+    grade: completed ? "大三" : null,
+    bio: completed ? "自动化测试学生资料" : null,
+    skills: completed ? ["前端", "设计"] : [],
+    interested_directions: completed ? ["比赛组队"] : [],
+    contact: completed ? "平台内联系" : null,
+    visibility_status: "active",
+  });
 }
 
 export async function seedMentorProfile(user: SeededUser, options?: { completed?: boolean }) {
@@ -172,6 +188,40 @@ export async function seedMentorProfile(user: SeededUser, options?: { completed?
 
   if (legacyMentorError) {
     throw new Error(legacyMentorError.message);
+  }
+
+  await admin.from("directory_people").upsert({
+    id: user.id,
+    auth_user_id: user.id,
+    source: "registered",
+    role: "mentor",
+    name: "测试导师",
+    school: completed ? "兰州交通大学" : null,
+    college: completed ? "计算机学院" : null,
+    lab: completed ? "AI实验室" : null,
+    bio: completed ? "自动化测试导师资料" : null,
+    skills: completed ? ["AI"] : [],
+    research_direction: completed ? "AI内容工具" : null,
+    support_types: completed ? ["项目指导"] : [],
+    support_method: completed ? "周期指导" : null,
+    open_status: true,
+    contact: completed ? "平台内联系" : null,
+    visibility_status: "active",
+  });
+}
+
+export async function grantAdminUser(userId: string, role: "super_admin" | "operator" = "super_admin") {
+  const { error } = await admin.from("admin_users").upsert(
+    {
+      user_id: userId,
+      role,
+      is_active: true,
+    },
+    { onConflict: "user_id" },
+  );
+
+  if (error) {
+    throw new Error(error.message);
   }
 }
 
@@ -238,6 +288,8 @@ export async function deleteOpportunity(opportunityId: string) {
 }
 
 export async function deleteUser(userId: string) {
+  await admin.from("admin_users").delete().eq("user_id", userId);
+  await admin.from("directory_people").delete().or(`id.eq.${userId},auth_user_id.eq.${userId}`);
   await admin.from("student_profiles").delete().eq("user_id", userId);
   await admin.from("mentor_profiles").delete().eq("user_id", userId);
   await admin.from("profiles").delete().eq("id", userId);

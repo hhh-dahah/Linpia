@@ -30,14 +30,14 @@ export function FormShell({
         </h1>
         <p className="mt-4 break-words text-sm leading-7 text-[var(--muted)] sm:text-base">{description}</p>
 
-        <div className="mt-8 overflow-hidden rounded-[1.5rem] border border-[var(--line)] bg-[var(--surface-muted)] p-4 sm:p-5">
+          <div className="mt-8 overflow-hidden rounded-[1.5rem] border border-line bg-surface-muted p-4 sm:p-5">
           <h2 className="text-lg font-semibold text-[var(--foreground)]">{asideTitle}</h2>
           <p className="mt-2 break-words text-sm leading-7 text-[var(--muted)]">{asideDescription}</p>
           <div className="mt-5 space-y-3">
             {tips.map((tip, index) => (
               <div
                 key={`${index}-${tip}`}
-                className="overflow-hidden rounded-2xl border border-[var(--line)] bg-white/88 px-4 py-3 text-sm leading-6 text-[var(--foreground)]"
+                  className="overflow-hidden rounded-2xl border border-line bg-white/88 px-4 py-3 text-sm leading-6 text-[var(--foreground)]"
               >
                 <span className="mr-2 font-semibold text-[var(--primary)]">0{index + 1}</span>
                 {tip}

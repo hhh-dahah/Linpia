@@ -324,7 +324,7 @@ export function MentorProfileForm({
         <FieldError message={fieldErrors.applicationNotes} />
       </label>
 
-      <label className="flex items-center gap-3 rounded-[1.4rem] border border-[var(--line)] bg-[var(--surface-muted)] px-4 py-4">
+              <label className="flex items-center gap-3 rounded-[1.4rem] border border-line bg-surface-muted px-4 py-4">
         <input
           type="checkbox"
           name="isOpen"

@@ -53,6 +53,8 @@ const PROFILE_SELECT =
 const STUDENT_PROFILE_SELECT = "user_id, school, major, grade, skills, intro, portfolio, target_direction, contact";
 const MENTOR_PROFILE_SELECT =
   "user_id, school, college, lab, research_direction, support_types, support_method, open_status, intro, contact, application_notes";
+const DIRECTORY_PERSON_SELECT =
+  "id, auth_user_id, source, role, name, school, major, grade, college, lab, bio, skills, interested_directions, research_direction, support_types, support_method, open_status, contact, avatar_path, portfolio_url, visibility_status, created_at, updated_at";
 
 const demoStudentNames = new Set(["林知夏", "宋一凡"]);
 const demoMentorNames = new Set(["王海峰", "刘静", "刘明远"]);
@@ -286,6 +288,57 @@ function normalizeMentorProfile(
   };
 }
 
+function normalizeDirectoryTalent(record: Record<string, unknown>): TalentDetail {
+  const name = String(record.name ?? "");
+  return {
+    id: String(record.id),
+    name,
+    nickname: name,
+    school: String(record.school ?? ""),
+    major: String(record.major ?? ""),
+    grade: String(record.grade ?? ""),
+    bio: String(record.bio ?? ""),
+    skills: Array.isArray(record.skills) ? (record.skills as string[]) : [],
+    interestedDirections: Array.isArray(record.interested_directions)
+      ? (record.interested_directions as string[])
+      : [],
+    timeCommitment: "",
+    avatarPath: (record.avatar_path as string | null) ?? null,
+    portfolioCoverPath: null,
+    portfolioExternalUrl: (record.portfolio_url as string | null) ?? null,
+    experience: String(record.bio ?? ""),
+    achievements: [],
+    contact: String(record.contact ?? ""),
+    contactHint: String(record.contact ?? "登录后可进一步联系。"),
+    isDemo: demoStudentNames.has(name),
+  };
+}
+
+function normalizeDirectoryMentor(record: Record<string, unknown>): MentorCard {
+  const name = String(record.name ?? "");
+  const school = String(record.school ?? "");
+  const college = String(record.college ?? "");
+  const lab = String(record.lab ?? "");
+
+  return {
+    id: String(record.id),
+    name,
+    organization: getMentorOrganization([school, college, lab]),
+    direction: String(record.research_direction ?? record.bio ?? ""),
+    directionTags: Array.isArray(record.skills) ? (record.skills as string[]) : [],
+    supportScope: Array.isArray(record.support_types) ? (record.support_types as string[]) : [],
+    avatarPath: (record.avatar_path as string | null) ?? null,
+    contactMode: String(record.contact ?? ""),
+    isOpen: Boolean(record.open_status ?? false),
+    school,
+    college,
+    lab,
+    supportMethod: String(record.support_method ?? ""),
+    applicationNotes: "",
+    isDemo: demoMentorNames.has(name),
+  };
+}
+
 function normalizeOpportunity(record: Record<string, unknown>, roleGaps: OpportunityDetail["roleGaps"]) {
   const tags = [
     ...(Array.isArray(record.preset_tags) ? (record.preset_tags as string[]) : []),
@@ -402,6 +455,7 @@ const getCachedOpportunities = unstable_cache(
     let request = supabase
       .from("opportunities")
       .select(OPPORTUNITY_SELECT)
+      .eq("visibility_status", "active")
       .order("created_at", { ascending: false })
       .limit(limit);
 
@@ -454,18 +508,18 @@ const getCachedOpportunities = unstable_cache(
 const getCachedTalents = unstable_cache(
   async (query: string, school: string, skill: string, limit: number) => {
     const supabase = getPublicReadClient();
-    const fetchLimit = limit + 6;
     let request = supabase
-      .from("profiles")
-      .select(PROFILE_SELECT)
+      .from("directory_people")
+      .select(DIRECTORY_PERSON_SELECT)
       .eq("role", "student")
+      .eq("visibility_status", "active")
       .order("updated_at", { ascending: false })
-      .limit(fetchLimit);
+      .limit(limit);
 
     if (query) {
       const pattern = buildSearchPattern(query);
       request = request.or(
-        `name.ilike.${pattern},nickname.ilike.${pattern},school.ilike.${pattern},major.ilike.${pattern},bio.ilike.${pattern},experience.ilike.${pattern}`,
+        `name.ilike.${pattern},school.ilike.${pattern},major.ilike.${pattern},bio.ilike.${pattern}`,
       );
     }
 
@@ -475,32 +529,17 @@ const getCachedTalents = unstable_cache(
 
     if (skill) {
       const arrayContains = buildArrayContainsFilter(skill);
-      request = request.or(`skill_tags.cs.${arrayContains},interested_directions.cs.${arrayContains}`);
+      request = request.or(`skills.cs.${arrayContains},interested_directions.cs.${arrayContains}`);
     }
 
-    const { data: profiles, error } = await request;
-    if (error || !profiles) {
-      throw error ?? new Error("Failed to load student profiles");
+    const { data, error } = await request;
+    if (error || !data) {
+      throw error ?? new Error("Failed to load directory people");
     }
-
-    const userIds = profiles.map((item) => String(item.id));
-    const { data: studentProfiles, error: studentError } = userIds.length
-      ? await supabase.from("student_profiles").select(STUDENT_PROFILE_SELECT).in("user_id", userIds)
-      : { data: [], error: null };
-
-    if (studentError) {
-      throw studentError;
-    }
-
-    const studentProfileMap = new Map(
-      (studentProfiles ?? []).map((item) => [String((item as StudentProfileRecord).user_id), item as StudentProfileRecord]),
-    );
 
     return stripDemoTalents(
-      profiles.map((item) =>
-        normalizeStudentProfile(item as ProfileRecord, studentProfileMap.get(String(item.id)) ?? null),
-      ),
-    ).slice(0, limit);
+      data.map((item) => normalizeDirectoryTalent(item as Record<string, unknown>)),
+    );
   },
   ["public-talents"],
   { revalidate: 60, tags: ["talents"] },
@@ -509,36 +548,38 @@ const getCachedTalents = unstable_cache(
 const getCachedMentors = unstable_cache(
   async (query: string, school: string, skill: string, limit: number) => {
     const supabase = getPublicReadClient();
-    const fetchLimit = limit + 6;
     let request = supabase
-      .from("mentors")
-      .select("*")
+      .from("directory_people")
+      .select(DIRECTORY_PERSON_SELECT)
+      .eq("role", "mentor")
+      .eq("visibility_status", "active")
       .order("created_at", { ascending: false })
-      .limit(fetchLimit);
+      .limit(limit);
 
     if (query) {
       const pattern = buildSearchPattern(query);
       request = request.or(
-        `name.ilike.${pattern},organization.ilike.${pattern},direction.ilike.${pattern},school.ilike.${pattern},college.ilike.${pattern},lab.ilike.${pattern}`,
+        `name.ilike.${pattern},school.ilike.${pattern},college.ilike.${pattern},lab.ilike.${pattern},research_direction.ilike.${pattern},bio.ilike.${pattern}`,
       );
     }
 
     if (school) {
-      const pattern = buildSearchPattern(school);
-      request = request.or(`school.ilike.${pattern},college.ilike.${pattern},lab.ilike.${pattern},organization.ilike.${pattern}`);
+      request = request.ilike("school", buildSearchPattern(school));
     }
 
     if (skill) {
       const arrayContains = buildArrayContainsFilter(skill);
-      request = request.or(`direction_tags.cs.${arrayContains},support_scope.cs.${arrayContains}`);
+      request = request.or(`skills.cs.${arrayContains},support_types.cs.${arrayContains}`);
     }
 
     const { data, error } = await request;
     if (error || !data) {
-      throw error ?? new Error("Failed to load mentors");
+      throw error ?? new Error("Failed to load directory mentors");
     }
 
-    return stripDemoMentors(data.map((item) => normalizeLegacyMentor(item as LegacyMentorRecord))).slice(0, limit);
+    return stripDemoMentors(
+      data.map((item) => normalizeDirectoryMentor(item as Record<string, unknown>)),
+    );
   },
   ["public-mentors"],
   { revalidate: 60, tags: ["mentors"] },
@@ -548,25 +589,26 @@ const getCachedTalentPoolCounts = unstable_cache(
   async () => {
     const supabase = getPublicReadClient();
     const [{ data: studentRows, error: studentError }, { data: mentorRows, error: mentorError }] = await Promise.all([
-      supabase.from("profiles").select("name, nickname").eq("role", "student"),
-      supabase.from("mentors").select("name"),
+      supabase
+        .from("directory_people")
+        .select("name")
+        .eq("role", "student")
+        .eq("visibility_status", "active"),
+      supabase
+        .from("directory_people")
+        .select("name")
+        .eq("role", "mentor")
+        .eq("visibility_status", "active"),
     ]);
 
     if (studentError || mentorError) {
       throw studentError ?? mentorError ?? new Error("Failed to load talent pool counts");
     }
 
-    const studentCount =
-      studentRows?.filter((item) => {
-        const name = String(item.name ?? "");
-        const nickname = String(item.nickname ?? "");
-        return !demoStudentNames.has(name) && !demoStudentNames.has(nickname);
-      }).length ?? 0;
-
-    const mentorCount =
-      mentorRows?.filter((item) => !demoMentorNames.has(String(item.name ?? ""))).length ?? 0;
-
-    return { studentCount, mentorCount };
+    return {
+      studentCount: (studentRows ?? []).filter((item) => !demoStudentNames.has(String(item.name ?? ""))).length,
+      mentorCount: (mentorRows ?? []).filter((item) => !demoMentorNames.has(String(item.name ?? ""))).length,
+    };
   },
   ["public-talent-pool-counts"],
   { revalidate: 60, tags: ["talents", "mentors"] },
@@ -628,7 +670,12 @@ export async function getOpportunityById(id: string) {
   try {
     const supabase = getPublicReadClient();
     const [{ data: opportunity, error }, { data: roles, error: rolesError }] = await Promise.all([
-      supabase.from("opportunities").select(OPPORTUNITY_SELECT).eq("id", id).maybeSingle(),
+      supabase
+        .from("opportunities")
+        .select(OPPORTUNITY_SELECT)
+        .eq("id", id)
+        .eq("visibility_status", "active")
+        .maybeSingle(),
       supabase.from("opportunity_roles").select("*").eq("opportunity_id", id),
     ]);
 
@@ -691,22 +738,40 @@ export async function getTalentById(id: string) {
 
   try {
     const supabase = getPublicReadClient();
-    const [{ data: profile, error }, { data: studentProfile, error: studentError }] = await Promise.all([
-      supabase.from("profiles").select(PROFILE_SELECT).eq("id", id).maybeSingle(),
-      supabase.from("student_profiles").select(STUDENT_PROFILE_SELECT).eq("user_id", id).maybeSingle(),
-    ]);
+    const { data, error } = await supabase
+      .from("directory_people")
+      .select(DIRECTORY_PERSON_SELECT)
+      .eq("id", id)
+      .eq("role", "student")
+      .eq("visibility_status", "active")
+      .maybeSingle();
 
-    if (error || !profile || studentError) {
+    if (error || !data) {
       return null;
     }
 
-    const normalized = normalizeStudentProfile(
-      profile as ProfileRecord,
-      (studentProfile as StudentProfileRecord | null) ?? null,
-    );
+    const normalized = normalizeDirectoryTalent(data as Record<string, unknown>);
     return normalized.isDemo ? null : normalized;
   } catch {
-    return null;
+    try {
+      const supabase = getPublicReadClient();
+      const [{ data: profile, error }, { data: studentProfile, error: studentError }] = await Promise.all([
+        supabase.from("profiles").select(PROFILE_SELECT).eq("id", id).maybeSingle(),
+        supabase.from("student_profiles").select(STUDENT_PROFILE_SELECT).eq("user_id", id).maybeSingle(),
+      ]);
+
+      if (error || !profile || studentError) {
+        return null;
+      }
+
+      const normalized = normalizeStudentProfile(
+        profile as ProfileRecord,
+        (studentProfile as StudentProfileRecord | null) ?? null,
+      );
+      return normalized.isDemo ? null : normalized;
+    } catch {
+      return null;
+    }
   }
 }
 
@@ -737,20 +802,38 @@ export async function getMentorById(id: string) {
 
   try {
     const supabase = getPublicReadClient();
-    let result = await supabase.from("mentors").select("*").eq("user_id", id).maybeSingle();
+    const { data, error } = await supabase
+      .from("directory_people")
+      .select(DIRECTORY_PERSON_SELECT)
+      .eq("id", id)
+      .eq("role", "mentor")
+      .eq("visibility_status", "active")
+      .maybeSingle();
 
-    if (result.error || !result.data) {
-      result = await supabase.from("mentors").select("*").eq("id", id).maybeSingle();
-    }
-
-    if (!result.data) {
+    if (error || !data) {
       return null;
     }
 
-    const normalized = normalizeLegacyMentor(result.data as LegacyMentorRecord);
+    const normalized = normalizeDirectoryMentor(data as Record<string, unknown>);
     return normalized.isDemo ? null : normalized;
   } catch {
-    return null;
+    try {
+      const supabase = getPublicReadClient();
+      let result = await supabase.from("mentors").select("*").eq("user_id", id).maybeSingle();
+
+      if (result.error || !result.data) {
+        result = await supabase.from("mentors").select("*").eq("id", id).maybeSingle();
+      }
+
+      if (!result.data) {
+        return null;
+      }
+
+      const normalized = normalizeLegacyMentor(result.data as LegacyMentorRecord);
+      return normalized.isDemo ? null : normalized;
+    } catch {
+      return null;
+    }
   }
 }
 

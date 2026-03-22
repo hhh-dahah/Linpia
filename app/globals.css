@@ -220,3 +220,19 @@ select {
 .ui-button-secondary:active {
   transform: scale(0.98);
 }
+
+.border-line {
+  border-color: var(--line);
+}
+
+.divide-line > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--line);
+}
+
+.bg-surface-muted {
+  background: var(--surface-muted);
+}
+
+.hover-border-brand-soft:hover {
+  border-color: rgba(51, 112, 255, 0.22);
+}

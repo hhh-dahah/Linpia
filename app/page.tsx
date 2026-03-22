@@ -6,6 +6,9 @@ import { HomeTalentPoolSection } from "@/components/home/home-talent-pool-sectio
 import { PageHeading } from "@/components/ui/page-heading";
 import { listOpportunities, listTalentPool } from "@/lib/data";
 
+const HOME_TALENT_PREVIEW_COUNT = 4;
+const HOME_TALENT_FETCH_LIMIT = 100;
+
 const heroActions = [
   {
     title: "我要找队伍",
@@ -42,7 +45,7 @@ const heroActions = [
 export default async function HomePage() {
   const [opportunities, homeTalentPool] = await Promise.all([
     listOpportunities({}, { limit: 3 }),
-    listTalentPool({}, { mentorLimit: 4, studentLimit: 4 }),
+    listTalentPool({}, { mentorLimit: HOME_TALENT_FETCH_LIMIT, studentLimit: HOME_TALENT_FETCH_LIMIT }),
   ]);
 
   return (
@@ -111,6 +114,7 @@ export default async function HomePage() {
         students={homeTalentPool.students}
         mentorCount={homeTalentPool.mentorCount}
         studentCount={homeTalentPool.studentCount}
+        previewCount={HOME_TALENT_PREVIEW_COUNT}
       />
     </div>
   );

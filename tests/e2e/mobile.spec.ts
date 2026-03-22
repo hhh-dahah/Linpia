@@ -26,11 +26,11 @@ test.describe("移动端重点回归", () => {
     await expect(page).toHaveURL(/\/login\?next=%2Fpublish|\/publish/);
   });
 
-  test("手机端导航可以进入首页人才池模块", async ({ page }) => {
+  test("手机端导航可以进入人才池页面", async ({ page }) => {
     await page.goto("/");
-    await page.locator('nav a[href="/#talent-pool"]').first().click();
+    await page.locator('nav a[href="/talent"]').first().click();
 
-    await expect(page).toHaveURL(/\/#talent-pool$/);
+    await expect(page).toHaveURL(/\/talent$/);
     await expect(page.locator("#talent-pool")).toBeVisible();
   });
 
@@ -42,6 +42,7 @@ test.describe("移动端重点回归", () => {
       await loginViaUi(page, user.email, user.password, "/profile");
 
       await expect(page).toHaveURL(/\/profile$/);
+      await page.waitForLoadState("networkidle");
 
       const metrics = await page.evaluate(() => ({
         docWidth: document.documentElement.scrollWidth,

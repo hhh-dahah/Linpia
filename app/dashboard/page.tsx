@@ -1,7 +1,8 @@
 import Link from "next/link";
 
 import { FormShell } from "@/components/ui/form-shell";
-import { getCurrentAccountRole, getCurrentUser, isAdminEmail } from "@/lib/auth";
+import { getCurrentAccountRole, getCurrentUser } from "@/lib/auth";
+import { getCurrentAdminUser } from "@/lib/admin";
 import { getDashboardSnapshot } from "@/lib/data";
 import { formatDate } from "@/lib/utils";
 
@@ -27,6 +28,7 @@ export default async function DashboardPage() {
   }
 
   const role = await getCurrentAccountRole(user);
+  const adminUser = await getCurrentAdminUser();
   const snapshot = await getDashboardSnapshot(user.id, role);
   const displayName =
     snapshot.profile && "name" in snapshot.profile ? snapshot.profile.name : user.email || "邻派用户";
@@ -66,8 +68,8 @@ export default async function DashboardPage() {
                 编辑学生资料
               </Link>
             )}
-            {isAdminEmail(user.email) ? (
-              <Link href="/dashboard/admin" className="ui-button-secondary px-4 py-2 text-sm font-semibold">
+            {adminUser ? (
+              <Link href="/admin" className="ui-button-secondary px-4 py-2 text-sm font-semibold">
                 进入后台录入
               </Link>
             ) : null}
@@ -80,7 +82,7 @@ export default async function DashboardPage() {
             <div className="mt-4 space-y-3">
               {snapshot.applications.length ? (
                 snapshot.applications.map((item) => (
-                  <div key={item.id} className="rounded-2xl border border-[var(--line)] bg-[var(--surface-muted)] px-4 py-4">
+              <div key={item.id} className="rounded-2xl border border-line bg-surface-muted px-4 py-4">
                     <p className="font-semibold text-[var(--foreground)]">{item.opportunityTitle}</p>
                     <p className="mt-2 text-sm text-[var(--muted)]">
                       状态：{item.status} · 提交于 {formatDate(item.submittedAt)}
@@ -98,7 +100,7 @@ export default async function DashboardPage() {
             <div className="mt-4 space-y-3">
               {snapshot.opportunities.length ? (
                 snapshot.opportunities.map((item) => (
-                  <div key={item.id} className="rounded-2xl border border-[var(--line)] bg-[var(--surface-muted)] px-4 py-4">
+              <div key={item.id} className="rounded-2xl border border-line bg-surface-muted px-4 py-4">
                     <p className="font-semibold text-[var(--foreground)]">{item.title}</p>
                     <p className="mt-2 text-sm text-[var(--muted)]">
                       {item.type} · {item.status} · 已报名 {item.applicantCount} 人

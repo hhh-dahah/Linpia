@@ -4,7 +4,7 @@ export const siteNavigation = [
   { href: "/", label: "首页" },
   { href: "/opportunities", label: "找队伍" },
   { href: "/publish", label: "发招募" },
-  { href: "/#talent-pool", label: "人才池" },
+  { href: "/talent", label: "人才池" },
   { href: "/profile", label: "个人资料" },
 ] as const;
 

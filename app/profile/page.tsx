@@ -80,7 +80,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
 
         <div className="grid gap-4 md:grid-cols-2">
           {showcase.sections.map((section) => (
-            <div key={section.label} className="rounded-[1.4rem] border border-[var(--line)] bg-white/88 p-5">
+              <div key={section.label} className="rounded-[1.4rem] border border-line bg-white/88 p-5">
               <p className="text-sm text-[var(--muted)]">{section.label}</p>
               <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-[var(--foreground)]">
                 {section.value}
