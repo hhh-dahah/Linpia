@@ -302,7 +302,7 @@ function normalizeDirectoryTalent(record: Record<string, unknown>): TalentDetail
     interestedDirections: Array.isArray(record.interested_directions)
       ? (record.interested_directions as string[])
       : [],
-    timeCommitment: "",
+    timeCommitment: String(record.time_commitment ?? ""),
     avatarPath: (record.avatar_path as string | null) ?? null,
     portfolioCoverPath: null,
     portfolioExternalUrl: (record.portfolio_url as string | null) ?? null,
@@ -337,6 +337,38 @@ function normalizeDirectoryMentor(record: Record<string, unknown>): MentorCard {
     applicationNotes: "",
     isDemo: demoMentorNames.has(name),
   };
+}
+
+async function attachStudentTimeCommitment(
+  supabase: ReturnType<typeof getPublicReadClient>,
+  rows: Array<Record<string, unknown>>,
+) {
+  const authUserIds = rows
+    .map((row) => String(row.auth_user_id ?? ""))
+    .filter(Boolean);
+
+  if (authUserIds.length === 0) {
+    return rows;
+  }
+
+  const uniqueAuthUserIds = [...new Set(authUserIds)];
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, time_commitment")
+    .in("id", uniqueAuthUserIds);
+
+  if (error || !data) {
+    return rows;
+  }
+
+  const timeCommitmentMap = new Map(
+    data.map((item) => [String(item.id), String(item.time_commitment ?? "")]),
+  );
+
+  return rows.map((row) => ({
+    ...row,
+    time_commitment: timeCommitmentMap.get(String(row.auth_user_id ?? "")) ?? String(row.time_commitment ?? ""),
+  }));
 }
 
 function normalizeOpportunity(record: Record<string, unknown>, roleGaps: OpportunityDetail["roleGaps"]) {
@@ -537,8 +569,13 @@ const getCachedTalents = unstable_cache(
       throw error ?? new Error("Failed to load directory people");
     }
 
+    const enrichedData = await attachStudentTimeCommitment(
+      supabase,
+      data as Array<Record<string, unknown>>,
+    );
+
     return stripDemoTalents(
-      data.map((item) => normalizeDirectoryTalent(item as Record<string, unknown>)),
+      enrichedData.map((item) => normalizeDirectoryTalent(item as Record<string, unknown>)),
     );
   },
   ["public-talents"],
@@ -746,13 +783,17 @@ export async function getTalentById(id: string) {
       .eq("visibility_status", "active")
       .maybeSingle();
 
-    if (error || !data) {
-      return null;
-    }
+      if (error || !data) {
+        return null;
+      }
 
-    const normalized = normalizeDirectoryTalent(data as Record<string, unknown>);
-    return normalized.isDemo ? null : normalized;
-  } catch {
+      const [enrichedRecord] = await attachStudentTimeCommitment(
+        supabase,
+        [data as Record<string, unknown>],
+      );
+      const normalized = normalizeDirectoryTalent(enrichedRecord);
+      return normalized.isDemo ? null : normalized;
+    } catch {
     try {
       const supabase = getPublicReadClient();
       const [{ data: profile, error }, { data: studentProfile, error: studentError }] = await Promise.all([
