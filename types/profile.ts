@@ -8,6 +8,7 @@ export type TalentCard = {
   grade: string;
   bio: string;
   skills: string[];
+  customSkills?: string[];
   interestedDirections: string[];
   timeCommitment: string;
   avatarPath?: string | null;

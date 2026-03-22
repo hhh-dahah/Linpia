@@ -16,6 +16,8 @@ export default async function TalentDetailPage({ params }: TalentDetailPageProps
     notFound();
   }
 
+  const visibleSkills = [...talent.skills, ...(talent.customSkills ?? [])];
+
   return (
     <div className="space-y-8">
       <PageHeading eyebrow="人才详情" title={talent.name} description={`${talent.school} · ${talent.major} · ${talent.grade}`} />
@@ -25,7 +27,7 @@ export default async function TalentDetailPage({ params }: TalentDetailPageProps
             <h2 className="text-xl font-bold text-[var(--foreground)]">完整人才卡</h2>
             <p className="mt-4 text-sm leading-8 text-[var(--muted)]">{talent.bio}</p>
             <div className="mt-5 flex flex-wrap gap-2">
-              {talent.skills.map((skill) => (
+              {visibleSkills.map((skill) => (
                 <span key={skill} className="chip">
                   {skill}
                 </span>

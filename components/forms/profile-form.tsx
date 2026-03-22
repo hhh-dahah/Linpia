@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 
@@ -20,12 +20,20 @@ type ProfileFormValues = {
   grade: string;
   bio: string;
   skillTags: string[];
+  customSkills: string[];
   interestedDirections: string[];
   timeCommitment: string;
   portfolioExternalUrl: string;
   experience: string;
   contact: string;
 };
+
+const presetSkillSet: Set<string> = new Set(skillOptions);
+const maxCustomSkillCount = 5;
+
+function normalizeCustomSkills(items: string[]) {
+  return [...new Set(items.map((item) => item.trim()).filter(Boolean))];
+}
 
 function getInitialValues(profile?: TalentDetail | null): ProfileFormValues {
   return {
@@ -35,6 +43,7 @@ function getInitialValues(profile?: TalentDetail | null): ProfileFormValues {
     grade: profile?.grade || "",
     bio: profile?.bio || "",
     skillTags: profile?.skills || [],
+    customSkills: profile?.customSkills || [],
     interestedDirections: profile?.interestedDirections || [],
     timeCommitment: profile?.timeCommitment || "",
     portfolioExternalUrl: profile?.portfolioExternalUrl || "",
@@ -54,6 +63,7 @@ export function ProfileForm({
   const [serverState, setServerState] = useState<ActionState>(initialActionState);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [values, setValues] = useState<ProfileFormValues>(() => getInitialValues(profile));
+  const [customSkillInput, setCustomSkillInput] = useState("");
   const [draftReady, setDraftReady] = useState(false);
 
   useEffect(() => {
@@ -70,6 +80,9 @@ export function ProfileForm({
           ...current,
           ...parsed,
           skillTags: Array.isArray(parsed.skillTags) ? parsed.skillTags : current.skillTags,
+          customSkills: Array.isArray(parsed.customSkills)
+            ? normalizeCustomSkills(parsed.customSkills)
+            : current.customSkills,
           interestedDirections: Array.isArray(parsed.interestedDirections)
             ? parsed.interestedDirections
             : current.interestedDirections,
@@ -116,13 +129,49 @@ export function ProfileForm({
     });
   }
 
+  function addCustomSkill() {
+    const nextSkill = customSkillInput.trim();
+    if (!nextSkill) {
+      return;
+    }
+
+    const nextCustomSkills = normalizeCustomSkills([...values.customSkills, nextSkill]).filter(
+      (item) => !presetSkillSet.has(item),
+    );
+
+    if (nextCustomSkills.length > maxCustomSkillCount) {
+      setFieldErrors((current) => ({
+        ...current,
+        customSkills: "自定义技能最多添加 5 个",
+      }));
+      return;
+    }
+
+    setValue("customSkills", nextCustomSkills);
+    setCustomSkillInput("");
+    setFieldErrors((current) => {
+      const next = { ...current };
+      delete next.customSkills;
+      return next;
+    });
+  }
+
+  function removeCustomSkill(skill: string) {
+    setValue(
+      "customSkills",
+      values.customSkills.filter((item) => item !== skill),
+    );
+  }
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setServerState(initialActionState);
+    const form = event.currentTarget;
 
-    const formData = new FormData(event.currentTarget);
+    const formData = new FormData(form);
     const payload = {
       ...values,
+      customSkills: normalizeCustomSkills(values.customSkills),
       avatar: formData.get("avatar"),
       portfolioCover: formData.get("portfolioCover"),
     };
@@ -145,7 +194,10 @@ export function ProfileForm({
     setFieldErrors({});
 
     startTransition(async () => {
-      const result = await saveProfileAction(initialActionState, formData);
+      const submitFormData = new FormData(form);
+      parsed.data.customSkills.forEach((skill) => submitFormData.append("customSkills", skill));
+
+      const result = await saveProfileAction(initialActionState, submitFormData);
       const nextErrors: Record<string, string> = {};
       Object.entries(result.fieldErrors || {}).forEach(([key, messages]) => {
         const first = messages?.[0];
@@ -229,9 +281,12 @@ export function ProfileForm({
       </label>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <div>
-          <FieldLabel>技能标签</FieldLabel>
-          <div className="mt-3 flex flex-wrap gap-2">
+        <div className="space-y-3">
+          <div>
+            <FieldLabel>预设技能标签</FieldLabel>
+            <p className="mt-1 text-sm text-[var(--muted)]">先选常用技能，后面也可以补充自定义技能。</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
             {skillOptions.map((item) => (
               <label
                 key={item}
@@ -255,29 +310,83 @@ export function ProfileForm({
           <FieldError message={fieldErrors.skillTags} />
         </div>
 
+        <div className="space-y-3">
+          <div>
+            <FieldLabel>自定义技能</FieldLabel>
+            <p className="mt-1 text-sm text-[var(--muted)]">最多添加 5 个，每个 2-10 个字，适合补充更细的技能表达。</p>
+          </div>
+          <div className="flex gap-3">
+            <input
+              data-testid="custom-skill-input"
+              value={customSkillInput}
+              onChange={(event) => setCustomSkillInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  addCustomSkill();
+                }
+              }}
+              className="field-base flex-1"
+              placeholder="例如：AIGC、短视频剪辑、用户访谈"
+            />
+            <button
+              type="button"
+              onClick={addCustomSkill}
+              data-testid="add-custom-skill"
+              className="ui-button-secondary whitespace-nowrap px-4 py-3 text-sm font-semibold"
+            >
+              添加技能
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {values.customSkills.length ? (
+              values.customSkills.map((skill) => (
+                <button
+                  key={skill}
+                  type="button"
+                  onClick={() => removeCustomSkill(skill)}
+                  className="inline-flex items-center gap-2 rounded-full border border-[rgba(36,107,250,0.22)] bg-[rgba(36,107,250,0.06)] px-3 py-2 text-sm text-[var(--primary-strong)] transition hover:border-[rgba(36,107,250,0.35)]"
+                >
+                  {skill}
+                  <span className="text-xs text-[var(--muted)]">移除</span>
+                </button>
+              ))
+            ) : (
+              <p className="text-sm text-[var(--muted)]">还没有添加自定义技能。</p>
+            )}
+          </div>
+          {values.customSkills.map((skill) => (
+            <input key={skill} type="hidden" name="customSkills" value={skill} />
+          ))}
+          <FieldError message={fieldErrors.customSkills} />
+        </div>
+      </div>
+
+      <div className="space-y-3">
         <div>
           <FieldLabel>想加入的方向</FieldLabel>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {studentDirectionOptions.map((item) => (
-              <label
-                key={item}
-                className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm transition ${
-                  selectedDirections.has(item)
-                    ? "border-[rgba(36,107,250,0.3)] bg-[rgba(36,107,250,0.08)] text-[var(--primary-strong)]"
-                    : "border-[rgba(17,40,79,0.12)] bg-white"
-                }`}
-              >
-                <input
-                  type="checkbox"
-                  name="interestedDirections"
-                  value={item}
-                  checked={selectedDirections.has(item)}
-                  onChange={() => toggleFromList("interestedDirections", item)}
-                />
-                {item}
-              </label>
-            ))}
-          </div>
+          <p className="mt-1 text-sm text-[var(--muted)]">别人也会根据这些方向判断你更适合哪类合作。</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {studentDirectionOptions.map((item) => (
+            <label
+              key={item}
+              className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm transition ${
+                selectedDirections.has(item)
+                  ? "border-[rgba(36,107,250,0.3)] bg-[rgba(36,107,250,0.08)] text-[var(--primary-strong)]"
+                  : "border-[rgba(17,40,79,0.12)] bg-white"
+              }`}
+            >
+              <input
+                type="checkbox"
+                name="interestedDirections"
+                value={item}
+                checked={selectedDirections.has(item)}
+                onChange={() => toggleFromList("interestedDirections", item)}
+              />
+              {item}
+            </label>
+          ))}
         </div>
       </div>
 

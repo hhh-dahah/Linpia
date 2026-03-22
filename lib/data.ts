@@ -14,6 +14,7 @@ import type { OpportunityDetail } from "@/types/opportunity";
 import type { PersonalShowcase, TalentDetail } from "@/types/profile";
 import { createPublicSupabaseClient } from "@/supabase/public";
 import { createServerSupabaseClient } from "@/supabase/server";
+import { skillOptions } from "@/constants";
 
 import { hasSupabaseEnv } from "./env";
 import { isBeforeToday } from "./utils";
@@ -45,16 +46,19 @@ const DEFAULT_TALENT_LIMIT = 12;
 const DEFAULT_MENTOR_LIMIT = 12;
 const DASHBOARD_OPPORTUNITY_LIMIT = 10;
 const DASHBOARD_APPLICATION_LIMIT = 20;
+const TALENT_SEARCH_FETCH_LIMIT = 200;
+const presetSkillSet: Set<string> = new Set(skillOptions);
 
 const OPPORTUNITY_SELECT =
   "id, type, title, summary, organization, school_scope, deadline, creator_id, creator_name, creator_role, creator_org_name, contact_info, cover_path, feishu_url, status, weekly_hours, progress, trial_task, skill_tags, preset_tags, custom_tags, deliverables, project_name, people_needed, research_direction, target_audience, support_method, applicant_count, created_at";
 const PROFILE_SELECT =
   "id, role, name, nickname, school, major, grade, bio, avatar_path, portfolio_cover_path, portfolio_external_url, time_commitment, skill_tags, interested_directions, achievements, experience, contact, contact_hint, updated_at";
-const STUDENT_PROFILE_SELECT = "user_id, school, major, grade, skills, intro, portfolio, target_direction, contact";
+const STUDENT_PROFILE_SELECT =
+  "user_id, school, major, grade, skills, custom_skills, intro, portfolio, target_direction, contact";
 const MENTOR_PROFILE_SELECT =
   "user_id, school, college, lab, research_direction, support_types, support_method, open_status, intro, contact, application_notes";
 const DIRECTORY_PERSON_SELECT =
-  "id, auth_user_id, source, role, name, school, major, grade, college, lab, bio, skills, interested_directions, research_direction, support_types, support_method, open_status, contact, avatar_path, portfolio_url, visibility_status, created_at, updated_at";
+  "id, auth_user_id, source, role, name, school, major, grade, college, lab, bio, skills, custom_skills, interested_directions, research_direction, support_types, support_method, open_status, contact, avatar_path, portfolio_url, visibility_status, created_at, updated_at";
 
 const demoStudentNames = new Set(["林知夏", "宋一凡"]);
 const demoMentorNames = new Set(["王海峰", "刘静", "刘明远"]);
@@ -72,6 +76,42 @@ function matchKeyword(parts: Array<string | undefined>, keyword?: string) {
   return parts
     .filter(Boolean)
     .some((part) => (part as string).toLowerCase().includes(normalized));
+}
+
+function normalizeStringArray(value: unknown) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return [...new Set(value.map(String).map((item) => item.trim()).filter(Boolean))];
+}
+
+function splitTalentSkills(value: unknown, customValue?: unknown) {
+  const allSkills = normalizeStringArray(value);
+  const customSkills = normalizeStringArray(customValue);
+  const combinedSkills = [...new Set([...allSkills, ...customSkills])];
+
+  return {
+    skills: combinedSkills.filter((item) => presetSkillSet.has(item)),
+    customSkills: combinedSkills.filter((item) => !presetSkillSet.has(item)),
+  };
+}
+
+function buildTalentSearchDocument(item: TalentDetail) {
+  return [
+    item.name,
+    item.school,
+    item.major,
+    item.grade,
+    item.bio,
+    item.skills.join(" "),
+    (item.customSkills ?? []).join(" "),
+    item.interestedDirections.join(" "),
+  ];
+}
+
+function searchTalentItems(items: TalentDetail[], filters: ListFilters) {
+  return filterTalents(items, filters);
 }
 
 async function getReadClient() {
@@ -148,7 +188,7 @@ function getMentorOrganization(parts: Array<string | null | undefined>, fallback
 
 function normalizeLegacyTalent(record: ProfileRecord): TalentDetail {
   const achievements = Array.isArray(record.achievements) ? (record.achievements as string[]) : [];
-  const skills = Array.isArray(record.skill_tags) ? (record.skill_tags as string[]) : [];
+  const { skills, customSkills } = splitTalentSkills(record.skill_tags);
   const interestedDirections = Array.isArray(record.interested_directions)
     ? (record.interested_directions as string[])
     : [];
@@ -162,6 +202,7 @@ function normalizeLegacyTalent(record: ProfileRecord): TalentDetail {
     grade: String(record.grade ?? ""),
     bio: String(record.bio ?? ""),
     skills,
+    customSkills,
     interestedDirections,
     timeCommitment: String(record.time_commitment ?? ""),
     avatarPath: (record.avatar_path as string | null) ?? null,
@@ -181,11 +222,10 @@ function normalizeStudentProfile(
   profile: ProfileRecord,
   studentProfile?: StudentProfileRecord | null,
 ): TalentDetail {
-  const skills = Array.isArray(studentProfile?.skills)
-    ? (studentProfile?.skills as string[])
-    : Array.isArray(profile.skill_tags)
-      ? (profile.skill_tags as string[])
-      : [];
+  const { skills, customSkills } = splitTalentSkills(
+    studentProfile?.skills ?? profile.skill_tags,
+    studentProfile?.custom_skills,
+  );
   const interestedDirections = studentProfile?.target_direction
     ? String(studentProfile.target_direction)
         .split(/[、,，]/)
@@ -204,6 +244,7 @@ function normalizeStudentProfile(
     grade: String(studentProfile?.grade ?? profile.grade ?? ""),
     bio: String(studentProfile?.intro ?? profile.bio ?? ""),
     skills,
+    customSkills,
     interestedDirections,
     timeCommitment: String(profile.time_commitment ?? ""),
     avatarPath: (profile.avatar_path as string | null) ?? null,
@@ -290,6 +331,7 @@ function normalizeMentorProfile(
 
 function normalizeDirectoryTalent(record: Record<string, unknown>): TalentDetail {
   const name = String(record.name ?? "");
+  const { skills, customSkills } = splitTalentSkills(record.skills, record.custom_skills);
   return {
     id: String(record.id),
     name,
@@ -298,7 +340,8 @@ function normalizeDirectoryTalent(record: Record<string, unknown>): TalentDetail
     major: String(record.major ?? ""),
     grade: String(record.grade ?? ""),
     bio: String(record.bio ?? ""),
-    skills: Array.isArray(record.skills) ? (record.skills as string[]) : [],
+    skills,
+    customSkills,
     interestedDirections: Array.isArray(record.interested_directions)
       ? (record.interested_directions as string[])
       : [],
@@ -447,11 +490,10 @@ function filterOpportunities(items: OpportunityDetail[], filters: ListFilters) {
 function filterTalents(items: TalentDetail[], filters: ListFilters) {
   return items.filter((item) => {
     const schoolMatch = filters.school ? item.school === filters.school : true;
-    const skillMatch = filters.skill ? item.skills.includes(filters.skill) : true;
-    const queryMatch = matchKeyword(
-      [item.name, item.major, item.bio, item.skills.join(" ")],
-      filters.query,
-    );
+    const skillMatch = filters.skill
+      ? [...item.skills, ...(item.customSkills ?? []), ...item.interestedDirections].includes(filters.skill)
+      : true;
+    const queryMatch = matchKeyword(buildTalentSearchDocument(item), filters.query);
 
     return schoolMatch && skillMatch && queryMatch;
   });
@@ -546,22 +588,10 @@ const getCachedTalents = unstable_cache(
       .eq("role", "student")
       .eq("visibility_status", "active")
       .order("updated_at", { ascending: false })
-      .limit(limit);
-
-    if (query) {
-      const pattern = buildSearchPattern(query);
-      request = request.or(
-        `name.ilike.${pattern},school.ilike.${pattern},major.ilike.${pattern},bio.ilike.${pattern}`,
-      );
-    }
+      .limit(Math.max(limit, TALENT_SEARCH_FETCH_LIMIT));
 
     if (school) {
       request = request.ilike("school", buildSearchPattern(school));
-    }
-
-    if (skill) {
-      const arrayContains = buildArrayContainsFilter(skill);
-      request = request.or(`skills.cs.${arrayContains},interested_directions.cs.${arrayContains}`);
     }
 
     const { data, error } = await request;
@@ -574,9 +604,11 @@ const getCachedTalents = unstable_cache(
       data as Array<Record<string, unknown>>,
     );
 
-    return stripDemoTalents(
+    const normalized = stripDemoTalents(
       enrichedData.map((item) => normalizeDirectoryTalent(item as Record<string, unknown>)),
     );
+
+    return searchTalentItems(normalized, { query, school, skill }).slice(0, limit);
   },
   ["public-talents"],
   { revalidate: 60, tags: ["talents"] },
@@ -988,7 +1020,7 @@ export async function getPersonalShowcase(
       title: profile.name,
       subtitle: [profile.school, profile.major, profile.grade].filter(Boolean).join(" · "),
       summary: profile.bio || "先把基础资料挂出来，后面再慢慢补作品和项目经历。",
-      tags: profile.skills,
+      tags: [...profile.skills, ...(profile.customSkills ?? [])],
       ctaLabel: "编辑学生资料",
       editPath: "/profile/student",
       sections: [

@@ -53,6 +53,39 @@ test.describe("身份、资料闭环与发布流程", () => {
     }
   });
 
+  test("学生自定义技能保存后，可在人才池按关键词和技能筛到", async ({ page }) => {
+    const user = await createConfirmedUser();
+    const uniqueName = `搜索学生${Date.now().toString().slice(-6)}`;
+    const customSkill = `访谈研究${Date.now().toString().slice(-2)}`;
+
+    try {
+      await seedStudentProfile(user, { completed: false });
+      await loginViaUi(page, user.email, user.password, "/profile");
+
+      await expect(page).toHaveURL(/\/profile\/student/);
+      await page.locator('input[name="name"]').fill(uniqueName);
+      await page.locator('select[name="school"]').selectOption({ index: 1 });
+      await page.locator('input[name="major"]').fill("新闻传播");
+      await page.locator('textarea[name="bio"]').fill(`我擅长${customSkill}，也会做内容策划和采访整理。`);
+      await page.locator('textarea[name="contact"]').fill("站内联系即可");
+      await page.getByTestId("custom-skill-input").fill(customSkill);
+      await page.getByTestId("add-custom-skill").click();
+      await page.getByRole("button", { name: "保存学生资料" }).click();
+
+      await expect(page.getByText("学生资料已保存。")).toBeVisible();
+
+      await page.goto(`/talent?query=${encodeURIComponent(customSkill)}`);
+      await expect(page.getByRole("heading", { name: uniqueName })).toBeVisible();
+      await expect(page.getByText(customSkill, { exact: true })).toBeVisible();
+
+      await page.goto(`/talent?skill=${encodeURIComponent(customSkill)}`);
+      await expect(page.getByRole("heading", { name: uniqueName })).toBeVisible();
+      await expect(page.getByText(customSkill, { exact: true })).toBeVisible();
+    } finally {
+      await deleteUser(user.id);
+    }
+  });
+
   test("导师保存资料后，个人资料页正常展示且首页人才池可见", async ({ page }) => {
     const user = await createConfirmedUser();
     const uniqueName = `测试导师${Date.now().toString().slice(-6)}`;

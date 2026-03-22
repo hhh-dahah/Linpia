@@ -3,6 +3,8 @@ import Link from "next/link";
 import type { TalentCard as TalentCardType } from "@/types/profile";
 
 export function TalentCard({ item }: { item: TalentCardType }) {
+  const visibleSkills = [...item.skills, ...(item.customSkills ?? [])];
+
   return (
     <article className="surface-card rounded-[1.75rem] p-6 hover:-translate-y-1">
       <div className="flex items-start gap-4">
@@ -20,8 +22,8 @@ export function TalentCard({ item }: { item: TalentCardType }) {
       <p className="mt-4 text-sm leading-7 text-[var(--muted)]">{item.bio || "这个同学还在补充个人介绍。"}</p>
 
       <div className="mt-5 flex flex-wrap gap-2">
-        {item.skills.length ? (
-          item.skills.map((skill) => (
+        {visibleSkills.length ? (
+          visibleSkills.map((skill) => (
             <span
               key={skill}
               className="rounded-full bg-[rgba(51,112,255,0.08)] px-3 py-1 text-xs font-medium text-[var(--primary-strong)]"

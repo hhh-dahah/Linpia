@@ -37,7 +37,9 @@ function ToggleButton({
       className="ui-button-secondary px-4 py-2 text-sm font-semibold"
       aria-expanded={expanded}
     >
-      {expanded ? `收起${subject}` : `查看更多${subject}${hiddenCount > 0 ? `（还有 ${hiddenCount} 位）` : ""}`}
+      {expanded
+        ? `收起${subject}`
+        : `查看更多${subject}${hiddenCount > 0 ? `（还有 ${hiddenCount} 位）` : ""}`}
     </button>
   );
 }
@@ -75,12 +77,18 @@ export function HomeTalentPoolSection({
 
   return (
     <section id="talent-pool" className="space-y-5 scroll-mt-28">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           <span className="chip">
             <span className="h-2 w-2 rounded-full bg-[var(--accent)]" />
             人才池
           </span>
+          {previewCount ? (
+            <span className="inline-flex items-center gap-2 rounded-full bg-[rgba(17,40,79,0.05)] px-3 py-1.5 text-[0.8rem] font-medium leading-none text-[rgba(17,40,79,0.58)]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[rgba(36,107,250,0.28)]" />
+              完整人才池支持搜索与筛选
+            </span>
+          ) : null}
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
@@ -130,8 +138,12 @@ export function HomeTalentPoolSection({
           </>
         ) : (
           <div className="surface-panel rounded-[2rem] p-8 text-center">
-            <h2 className="text-[1.75rem] font-bold text-[var(--foreground)]">当前还没有可展示的导师资料</h2>
-            <p className="mt-2 text-[0.95rem] text-[var(--muted)]">导师入驻后会出现在这里。</p>
+            <h2 className="text-[1.75rem] font-bold text-[var(--foreground)]">
+              当前还没有可展示的导师资料
+            </h2>
+            <p className="mt-2 text-[0.95rem] text-[var(--muted)]">
+              导师入驻后会出现在这里。
+            </p>
           </div>
         )}
       </div>
@@ -171,7 +183,9 @@ export function HomeTalentPoolSection({
           </>
         ) : (
           <div className="surface-panel rounded-[2rem] p-8 text-center">
-            <h2 className="text-[1.75rem] font-bold text-[var(--foreground)]">当前还没有可展示的学生资料</h2>
+            <h2 className="text-[1.75rem] font-bold text-[var(--foreground)]">
+              当前还没有可展示的学生资料
+            </h2>
             <p className="mt-2 text-[0.95rem] text-[var(--muted)]">
               先完善个人资料后，你的技能展示也会出现在这里。
             </p>

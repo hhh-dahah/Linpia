@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
@@ -110,6 +110,7 @@ async function syncDirectoryPersonRecord(
     lab?: string;
     bio?: string;
     skills?: string[];
+    customSkills?: string[];
     interestedDirections?: string[];
     researchDirection?: string;
     supportTypes?: string[];
@@ -124,36 +125,45 @@ async function syncDirectoryPersonRecord(
     archivedAt?: string | null;
   },
 ) {
-  const { error } = await client.from("directory_people").upsert(
+  const baseRecord = {
+    id: payload.id,
+    auth_user_id: payload.authUserId ?? null,
+    source: payload.source ?? "registered",
+    role: payload.role,
+    name: payload.name,
+    school: payload.school || null,
+    major: payload.major || null,
+    grade: payload.grade || null,
+    college: payload.college || null,
+    lab: payload.lab || null,
+    bio: payload.bio || null,
+    skills: payload.skills ?? [],
+    interested_directions: payload.interestedDirections ?? [],
+    research_direction: payload.researchDirection || null,
+    support_types: payload.supportTypes ?? [],
+    support_method: payload.supportMethod || null,
+    open_status: payload.openStatus ?? false,
+    contact: payload.contact || null,
+    avatar_path: payload.avatarPath ?? null,
+    portfolio_url: payload.portfolioUrl ?? null,
+    visibility_status: payload.visibilityStatus ?? "active",
+    created_by_admin_id: payload.createdByAdminId ?? null,
+    updated_by_admin_id: payload.updatedByAdminId ?? null,
+    archived_at: payload.archivedAt ?? null,
+    updated_at: new Date().toISOString(),
+  };
+
+  let { error } = await client.from("directory_people").upsert(
     {
-      id: payload.id,
-      auth_user_id: payload.authUserId ?? null,
-      source: payload.source ?? "registered",
-      role: payload.role,
-      name: payload.name,
-      school: payload.school || null,
-      major: payload.major || null,
-      grade: payload.grade || null,
-      college: payload.college || null,
-      lab: payload.lab || null,
-      bio: payload.bio || null,
-      skills: payload.skills ?? [],
-      interested_directions: payload.interestedDirections ?? [],
-      research_direction: payload.researchDirection || null,
-      support_types: payload.supportTypes ?? [],
-      support_method: payload.supportMethod || null,
-      open_status: payload.openStatus ?? false,
-      contact: payload.contact || null,
-      avatar_path: payload.avatarPath ?? null,
-      portfolio_url: payload.portfolioUrl ?? null,
-      visibility_status: payload.visibilityStatus ?? "active",
-      created_by_admin_id: payload.createdByAdminId ?? null,
-      updated_by_admin_id: payload.updatedByAdminId ?? null,
-      archived_at: payload.archivedAt ?? null,
-      updated_at: new Date().toISOString(),
+      ...baseRecord,
+      custom_skills: payload.customSkills ?? [],
     },
     { onConflict: "id" },
   );
+
+  if (error && /custom_skills/i.test(error.message)) {
+    ({ error } = await client.from("directory_people").upsert(baseRecord, { onConflict: "id" }));
+  }
 
   if (error && !/relation .*directory_people.* does not exist/i.test(error.message)) {
     throw error;
@@ -320,6 +330,7 @@ export async function saveProfileAction(_: ActionState, formData: FormData): Pro
     grade: String(formData.get("grade") ?? ""),
     bio: String(formData.get("bio") ?? ""),
     skillTags: formData.getAll("skillTags").map(String),
+    customSkills: formData.getAll("customSkills").map(String),
     interestedDirections: formData.getAll("interestedDirections").map(String),
     timeCommitment: String(formData.get("timeCommitment") ?? ""),
     portfolioExternalUrl: String(formData.get("portfolioExternalUrl") ?? ""),
@@ -369,6 +380,7 @@ export async function saveProfileAction(_: ActionState, formData: FormData): Pro
     });
 
     const client = await getWriteClient();
+    const mergedSkills = [...new Set([...parsed.data.skillTags, ...parsed.data.customSkills])];
     const profileCompleted = getRoleCompletion({
       nickname: parsed.data.name,
       school: parsed.data.school,
@@ -393,7 +405,7 @@ export async function saveProfileAction(_: ActionState, formData: FormData): Pro
       portfolio_cover_path: portfolioCoverPath,
       portfolio_external_url: parsed.data.portfolioExternalUrl || null,
       time_commitment: parsed.data.timeCommitment || null,
-      skill_tags: parsed.data.skillTags,
+      skill_tags: mergedSkills,
       interested_directions: parsed.data.interestedDirections,
       achievements: parsed.data.experience ? [parsed.data.experience] : [],
       experience: parsed.data.experience || null,
@@ -415,7 +427,7 @@ export async function saveProfileAction(_: ActionState, formData: FormData): Pro
         portfolio_cover_path: portfolioCoverPath,
         portfolio_external_url: parsed.data.portfolioExternalUrl || null,
         time_commitment: parsed.data.timeCommitment || null,
-        skill_tags: parsed.data.skillTags,
+        skill_tags: mergedSkills,
         interested_directions: parsed.data.interestedDirections,
         achievements: parsed.data.experience ? [parsed.data.experience] : [],
         experience: parsed.data.experience || null,
@@ -429,17 +441,32 @@ export async function saveProfileAction(_: ActionState, formData: FormData): Pro
       return { status: "error", message: "学生主资料保存失败，请稍后再试。" };
     }
 
-    const studentProfileResult = await client.from("student_profiles").upsert({
+    let studentProfileResult = await client.from("student_profiles").upsert({
       user_id: user.id,
       school: parsed.data.school || null,
       major: parsed.data.major || null,
       grade: parsed.data.grade || null,
-      skills: parsed.data.skillTags,
+      skills: mergedSkills,
+      custom_skills: parsed.data.customSkills,
       intro: parsed.data.bio || null,
       portfolio: parsed.data.portfolioExternalUrl || null,
       target_direction: parsed.data.interestedDirections.join("、") || null,
       contact: parsed.data.contact || null,
     });
+
+    if (studentProfileResult.error && /custom_skills/i.test(studentProfileResult.error.message)) {
+      studentProfileResult = await client.from("student_profiles").upsert({
+        user_id: user.id,
+        school: parsed.data.school || null,
+        major: parsed.data.major || null,
+        grade: parsed.data.grade || null,
+        skills: mergedSkills,
+        intro: parsed.data.bio || null,
+        portfolio: parsed.data.portfolioExternalUrl || null,
+        target_direction: parsed.data.interestedDirections.join("、") || null,
+        contact: parsed.data.contact || null,
+      });
+    }
 
     if (
       studentProfileResult.error &&
@@ -458,7 +485,8 @@ export async function saveProfileAction(_: ActionState, formData: FormData): Pro
       major: parsed.data.major,
       grade: parsed.data.grade,
       bio: parsed.data.bio,
-      skills: parsed.data.skillTags,
+      skills: mergedSkills,
+      customSkills: parsed.data.customSkills,
       interestedDirections: parsed.data.interestedDirections,
       contact: parsed.data.contact,
       avatarPath,
