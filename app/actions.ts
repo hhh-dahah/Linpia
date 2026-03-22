@@ -200,19 +200,27 @@ function getRoleCompletion(payload: {
   supportMethod?: string;
   organization?: string;
 }) {
-  return Boolean(
-    payload.nickname ||
-      payload.school ||
-      payload.major ||
-      payload.grade ||
-      payload.bio ||
-      payload.experience ||
-      payload.contact ||
-      payload.direction ||
-      payload.supportMethod ||
-      payload.organization ||
+  const hasNickname = Boolean(payload.nickname?.trim());
+  const hasContact = Boolean(payload.contact?.trim());
+  const isMentorFlow = Boolean(
+    payload.direction?.trim() ||
+      payload.supportMethod?.trim() ||
+      payload.organization?.trim() ||
       (payload.supportScope?.length ?? 0) > 0,
   );
+
+  if (isMentorFlow) {
+    return Boolean(
+      hasNickname &&
+        hasContact &&
+        payload.direction?.trim() &&
+        payload.supportMethod?.trim() &&
+        payload.organization?.trim() &&
+        (payload.supportScope?.length ?? 0) > 0,
+    );
+  }
+
+  return Boolean(hasNickname && hasContact);
 }
 
 export async function logoutAction() {

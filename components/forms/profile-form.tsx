@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 
@@ -296,7 +296,7 @@ export function ProfileForm({
         </label>
 
         <label className="block space-y-2">
-          <FieldLabel>联系方式</FieldLabel>
+          <FieldLabel required>联系方式</FieldLabel>
           <textarea
             name="contact"
             rows={4}

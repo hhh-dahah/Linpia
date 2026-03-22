@@ -13,7 +13,7 @@ export const profileSchema = z.object({
   timeCommitment: optionalTextSchema,
   portfolioExternalUrl: optionalUrlSchema,
   experience: optionalTextSchema,
-  contact: optionalTextSchema,
+  contact: z.string().trim().min(2, "请填写联系方式，方便别人联系你"),
   avatar: fileLikeSchema,
   portfolioCover: fileLikeSchema,
 });
