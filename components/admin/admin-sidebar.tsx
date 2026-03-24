@@ -26,8 +26,8 @@ export function AdminSidebar({ canManageAdmins }: { canManageAdmins: boolean }) 
               href={item.href}
               className={`flex items-center justify-between rounded-2xl px-4 py-3 text-sm font-semibold transition ${
                 active
-                  ? "bg-[rgba(51,112,255,0.12)] text-[var(--primary-strong)]"
-                  : "text-[var(--muted)] hover:bg-[rgba(51,112,255,0.06)] hover:text-[var(--foreground)]"
+                  ? "bg-[rgba(51,112,255,0.12)] text-primary-strong"
+                  : "text-muted hover:bg-[rgba(51,112,255,0.06)] hover-text-foreground"
               }`}
             >
               <span>{item.label}</span>

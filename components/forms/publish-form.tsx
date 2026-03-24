@@ -8,20 +8,11 @@ import { scrollToFirstError } from "@/lib/form";
 import type { AccountRole } from "@/types/account";
 import { initialActionState, type ActionState } from "@/types/action";
 import { opportunityTypes } from "@/types/opportunity";
-import { FormFeedback } from "../ui/form-feedback";
+import { opportunitySchema } from "@/validators/opportunity";
 import { FieldError } from "../ui/field-error";
+import { FormFeedback } from "../ui/form-feedback";
 import { FieldLabel } from "../ui/field-label";
 import { ImageUploadInput } from "../ui/image-upload-input";
-import { opportunitySchema } from "@/validators/opportunity";
-
-type RoleFormValue = {
-  id: string;
-  roleName: string;
-  responsibility: string;
-  requirements: string;
-  headcount: number;
-  weeklyHours: string;
-};
 
 type PublishFormState = {
   title: string;
@@ -36,26 +27,13 @@ type PublishFormState = {
   presetTags: string[];
   customTagInput: string;
   customTags: string[];
-  roles: RoleFormValue[];
   projectName: string;
-  peopleNeeded: string;
   researchDirection: string;
   targetAudience: string;
   supportMethod: string;
 };
 
 type ErrorMap = Record<string, string>;
-
-function createRole(): RoleFormValue {
-  return {
-    id: crypto.randomUUID(),
-    roleName: "",
-    responsibility: "",
-    requirements: "",
-    headcount: 1,
-    weeklyHours: "",
-  };
-}
 
 const defaultFormState: PublishFormState = {
   title: "",
@@ -70,9 +48,7 @@ const defaultFormState: PublishFormState = {
   presetTags: [],
   customTagInput: "",
   customTags: [],
-  roles: [createRole()],
   projectName: "",
-  peopleNeeded: "",
   researchDirection: "",
   targetAudience: "",
   supportMethod: "",
@@ -88,15 +64,6 @@ export function PublishForm({ role }: { role: AccountRole }) {
 
   function setValue<K extends keyof PublishFormState>(key: K, value: PublishFormState[K]) {
     setFormValues((current) => ({ ...current, [key]: value }));
-  }
-
-  function setRoleValue(index: number, key: keyof RoleFormValue, value: string | number) {
-    setFormValues((current) => ({
-      ...current,
-      roles: current.roles.map((item, itemIndex) =>
-        itemIndex === index ? { ...item, [key]: value } : item,
-      ),
-    }));
   }
 
   function togglePresetTag(tag: string) {
@@ -128,17 +95,6 @@ export function PublishForm({ role }: { role: AccountRole }) {
     }));
   }
 
-  function addRole() {
-    setFormValues((current) => ({ ...current, roles: [...current.roles, createRole()] }));
-  }
-
-  function removeRole(index: number) {
-    setFormValues((current) => ({
-      ...current,
-      roles: current.roles.filter((_, roleIndex) => roleIndex !== index),
-    }));
-  }
-
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setServerState(initialActionState);
@@ -159,16 +115,8 @@ export function PublishForm({ role }: { role: AccountRole }) {
             feishuUrl: formValues.feishuUrl,
             presetTags: formValues.presetTags,
             customTags: formValues.customTags,
-            roles: formValues.roles.map((item) => ({
-              roleName: item.roleName,
-              responsibility: item.responsibility,
-              requirements: item.requirements,
-              headcount: item.headcount,
-              weeklyHours: item.weeklyHours,
-            })),
             cover: formData.get("cover"),
             projectName: formValues.projectName,
-            peopleNeeded: formValues.peopleNeeded,
           }
         : {
             role,
@@ -183,13 +131,6 @@ export function PublishForm({ role }: { role: AccountRole }) {
             feishuUrl: formValues.feishuUrl,
             presetTags: formValues.presetTags,
             customTags: formValues.customTags,
-            roles: formValues.roles.map((item) => ({
-              roleName: item.roleName,
-              responsibility: item.responsibility,
-              requirements: item.requirements,
-              headcount: item.headcount,
-              weeklyHours: item.weeklyHours,
-            })),
             cover: formData.get("cover"),
             researchDirection: formValues.researchDirection,
             targetAudience: formValues.targetAudience,
@@ -242,7 +183,7 @@ export function PublishForm({ role }: { role: AccountRole }) {
             value={formValues.title}
             onChange={(event) => setValue("title", event.target.value)}
             className="field-base"
-            placeholder={role === "student" ? "例如：数学建模国赛招募建模与答辩同学" : "例如：实验室开放学生申请"}
+            placeholder={role === "student" ? "例如：数学建模国赛招募前端与答辩同学" : "例如：实验室开放学生申请"}
           />
           <FieldError message={fieldErrors.title} />
         </label>
@@ -273,7 +214,7 @@ export function PublishForm({ role }: { role: AccountRole }) {
             value={formValues.organization}
             onChange={(event) => setValue("organization", event.target.value)}
             className="field-base"
-            placeholder={role === "student" ? "例如：兰州交通大学 数模队" : "例如：兰州交通大学 AI+设计工作室"}
+            placeholder={role === "student" ? "例如：兰州交通大学 / 数模队" : "例如：兰州交通大学 / AI+设计工作室"}
           />
           <FieldError message={fieldErrors.organization} />
         </label>
@@ -292,31 +233,17 @@ export function PublishForm({ role }: { role: AccountRole }) {
       </div>
 
       {role === "student" ? (
-        <div className="grid gap-4 md:grid-cols-2">
-          <label className="block space-y-2">
-            <FieldLabel required>项目 / 比赛名称</FieldLabel>
-            <input
-              name="projectName"
-              value={formValues.projectName}
-              onChange={(event) => setValue("projectName", event.target.value)}
-              className="field-base"
-              placeholder="例如：互联网+ 校赛 / 创新项目"
-            />
-            <FieldError message={fieldErrors.projectName} />
-          </label>
-
-          <label className="block space-y-2">
-            <FieldLabel required>需要什么人</FieldLabel>
-            <input
-              name="peopleNeeded"
-              value={formValues.peopleNeeded}
-              onChange={(event) => setValue("peopleNeeded", event.target.value)}
-              className="field-base"
-              placeholder="例如：前端、设计、答辩表达"
-            />
-            <FieldError message={fieldErrors.peopleNeeded} />
-          </label>
-        </div>
+        <label className="block space-y-2">
+          <FieldLabel required>项目 / 比赛名称</FieldLabel>
+          <input
+            name="projectName"
+            value={formValues.projectName}
+            onChange={(event) => setValue("projectName", event.target.value)}
+            className="field-base"
+            placeholder="例如：互联网+ 校赛 / 创新项目"
+          />
+          <FieldError message={fieldErrors.projectName} />
+        </label>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
           <label className="block space-y-2">
@@ -326,7 +253,7 @@ export function PublishForm({ role }: { role: AccountRole }) {
               value={formValues.researchDirection}
               onChange={(event) => setValue("researchDirection", event.target.value)}
               className="field-base"
-              placeholder="例如：AI 内容工具、机器人控制、科研训练"
+              placeholder="例如：AI 内容工具 / 数据分析 / 视觉传播"
             />
             <FieldError message={fieldErrors.researchDirection} />
           </label>
@@ -360,17 +287,17 @@ export function PublishForm({ role }: { role: AccountRole }) {
       ) : null}
 
       <label className="block space-y-2">
-        <FieldLabel required>需求说明</FieldLabel>
+        <FieldLabel required>详细需求说明</FieldLabel>
         <textarea
           name="summary"
-          rows={4}
+          rows={5}
           value={formValues.summary}
           onChange={(event) => setValue("summary", event.target.value)}
           className="field-base"
           placeholder={
             role === "student"
-              ? "说清楚项目现在到哪一步、为什么要招人、希望一起完成什么。"
-              : "说清楚你提供什么支持、适合什么学生加入、合作方式是什么。"
+              ? "把你现在在做什么、希望找什么样的人、加入后主要一起完成什么写清楚。"
+              : "把你提供什么支持、适合什么样的学生加入、合作方式是什么写清楚。"
           }
         />
         <FieldError message={fieldErrors.summary} />
@@ -411,7 +338,7 @@ export function PublishForm({ role }: { role: AccountRole }) {
             value={formValues.applicationRequirement}
             onChange={(event) => setValue("applicationRequirement", event.target.value)}
             className="field-base"
-            placeholder="可选，例如：希望附上作品、经历或试合作材料。"
+            placeholder="可选，例如：希望附上作品、经历或其他补充材料。"
           />
           <FieldError message={fieldErrors.applicationRequirement} />
         </label>
@@ -437,7 +364,7 @@ export function PublishForm({ role }: { role: AccountRole }) {
               key={item}
               className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm transition ${
                 selectedPresetTagSet.has(item)
-                  ? "border-[rgba(36,107,250,0.3)] bg-[rgba(36,107,250,0.08)] text-[var(--primary-strong)]"
+                  ? "border-[rgba(36,107,250,0.3)] bg-[rgba(36,107,250,0.08)] text-primary-strong"
                   : "border-[rgba(17,40,79,0.12)] bg-white"
               }`}
             >
@@ -478,7 +405,7 @@ export function PublishForm({ role }: { role: AccountRole }) {
               key={tag}
               type="button"
               onClick={() => removeCustomTag(tag)}
-              className="rounded-full bg-[rgba(17,40,79,0.06)] px-3 py-2 text-sm font-medium text-[var(--foreground)]"
+              className="rounded-full bg-[rgba(17,40,79,0.06)] px-3 py-2 text-sm font-medium text-foreground"
             >
               {tag} ×
             </button>
@@ -488,99 +415,6 @@ export function PublishForm({ role }: { role: AccountRole }) {
           <input key={tag} type="hidden" name="customTags" value={tag} />
         ))}
         <FieldError message={fieldErrors.customTags} />
-      </div>
-
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <FieldLabel required>{role === "student" ? "需要的成员" : "招募方向 / 成员说明"}</FieldLabel>
-          <button
-            type="button"
-            onClick={addRole}
-            className="rounded-full border border-[rgba(17,40,79,0.12)] px-4 py-2 text-sm font-semibold"
-          >
-            添加一项
-          </button>
-        </div>
-        <FieldError message={fieldErrors.roles} />
-
-        {formValues.roles.map((item, index) => (
-          <div
-            key={item.id}
-            className="rounded-[1.5rem] border border-[rgba(17,40,79,0.08)] bg-white/80 p-4"
-          >
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <input
-                  name="roleName"
-                  value={item.roleName}
-                  onChange={(event) => setRoleValue(index, "roleName", event.target.value)}
-                  className="field-base"
-                  placeholder={role === "student" ? "例如：前端 / 答辩 / 后端" : "例如：项目协同 / 视觉设计 / 研究助理"}
-                />
-                <FieldError message={fieldErrors[`roles.${index}.roleName`]} />
-              </div>
-
-              <div>
-                <input
-                  name="roleWeeklyHours"
-                  value={item.weeklyHours}
-                  onChange={(event) => setRoleValue(index, "weeklyHours", event.target.value)}
-                  className="field-base"
-                  placeholder="预计投入，例如每周 6 小时"
-                />
-                <FieldError message={fieldErrors[`roles.${index}.weeklyHours`]} />
-              </div>
-
-              <div>
-                <textarea
-                  name="roleResponsibility"
-                  rows={3}
-                  value={item.responsibility}
-                  onChange={(event) => setRoleValue(index, "responsibility", event.target.value)}
-                  className="field-base"
-                  placeholder="职责说明"
-                />
-                <FieldError message={fieldErrors[`roles.${index}.responsibility`]} />
-              </div>
-
-              <div>
-                <textarea
-                  name="roleRequirements"
-                  rows={3}
-                  value={item.requirements}
-                  onChange={(event) => setRoleValue(index, "requirements", event.target.value)}
-                  className="field-base"
-                  placeholder="报名要求"
-                />
-                <FieldError message={fieldErrors[`roles.${index}.requirements`]} />
-              </div>
-
-              <div>
-                <input
-                  name="roleHeadcount"
-                  type="number"
-                  min={1}
-                  value={item.headcount}
-                  onChange={(event) =>
-                    setRoleValue(index, "headcount", Number(event.target.value || 1))
-                  }
-                  className="field-base"
-                />
-                <FieldError message={fieldErrors[`roles.${index}.headcount`]} />
-              </div>
-            </div>
-
-            {formValues.roles.length > 1 ? (
-              <button
-                type="button"
-                onClick={() => removeRole(index)}
-                className="mt-4 text-sm font-semibold text-[var(--danger)]"
-              >
-                删除这一项
-              </button>
-            ) : null}
-          </div>
-        ))}
       </div>
 
       <ImageUploadInput name="cover" label="招募封面" helper="可选，用于招募卡片展示。" />

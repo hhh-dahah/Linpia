@@ -88,26 +88,16 @@ export default async function OpportunityDetailPage({ params }: OpportunityDetai
                   rel="noreferrer"
                   className="inline-flex items-center rounded-full bg-[var(--primary)] px-5 py-3 font-semibold text-white transition hover:bg-[var(--primary-strong)]"
                 >
-                  查看飞书完整文档
+                  查看飞书完整说明
                 </Link>
               </div>
             ) : null}
           </div>
 
           <div className="surface-card rounded-[2rem] p-6">
-            <h2 className="text-xl font-bold text-[var(--foreground)]">所需方向 / 成员</h2>
-            <div className="mt-5 space-y-4">
-              {opportunity.roleGaps.map((role) => (
-                <div key={role.id} className="rounded-2xl border border-[rgba(17,40,79,0.08)] bg-white/80 p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <h3 className="font-semibold text-[var(--foreground)]">{role.roleName}</h3>
-                    <span className="text-sm text-[var(--muted)]">招募 {role.headcount} 人</span>
-                  </div>
-                  <p className="mt-2 text-sm leading-7 text-[var(--muted)]">{role.responsibility}</p>
-                  <p className="mt-2 text-sm text-[var(--foreground)]">要求：{role.requirements}</p>
-                  <p className="mt-1 text-sm text-[var(--muted)]">预计投入：{role.weeklyHours}</p>
-                </div>
-              ))}
+            <h2 className="text-xl font-bold text-[var(--foreground)]">详细需求说明</h2>
+            <div className="mt-5 rounded-2xl border border-[rgba(17,40,79,0.08)] bg-white/80 p-5">
+              <p className="whitespace-pre-wrap text-sm leading-7 text-[var(--muted)]">{opportunity.summary}</p>
             </div>
           </div>
         </div>
@@ -117,7 +107,7 @@ export default async function OpportunityDetailPage({ params }: OpportunityDetai
             <h2 className="text-xl font-bold text-[var(--foreground)]">报名入口</h2>
             <p className="mt-3 text-sm leading-7 text-[var(--muted)]">
               {user
-                ? "登录后可以直接提交报名备注和试合作链接。"
+                ? "登录后可以直接填写自我介绍、联系方式和作品证明链接。"
                 : "报名前需要先登录，登录后会自动回到这里继续操作。"}
             </p>
             {user ? (

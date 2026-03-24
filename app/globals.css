@@ -236,3 +236,43 @@ select {
 .hover-border-brand-soft:hover {
   border-color: rgba(51, 112, 255, 0.22);
 }
+
+.text-foreground {
+  color: var(--foreground);
+}
+
+.text-muted {
+  color: var(--muted);
+}
+
+.text-primary {
+  color: var(--primary);
+}
+
+.text-primary-strong {
+  color: var(--primary-strong);
+}
+
+.text-success {
+  color: var(--success);
+}
+
+.text-danger {
+  color: var(--danger);
+}
+
+.hover-text-foreground:hover {
+  color: var(--foreground);
+}
+
+.hover-text-primary:hover {
+  color: var(--primary);
+}
+
+.hover-text-primary-strong:hover {
+  color: var(--primary-strong);
+}
+
+.active-text-primary:active {
+  color: var(--primary);
+}

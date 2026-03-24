@@ -79,8 +79,9 @@ function normalizeAdminApplication(
     applicantId: String(row.applicant_id ?? ""),
     applicantName: String(applicant?.nickname ?? applicant?.name ?? applicant?.email ?? "未命名用户"),
     applicantRole: (applicant?.role as AccountRole | null) ?? null,
-    note: String(row.note ?? ""),
-    trialTaskUrl: String(row.trial_task_url ?? ""),
+    introduction: String(row.note ?? ""),
+    contact: String(row.contact ?? ""),
+    proofUrl: String(row.proof_url ?? row.trial_task_url ?? ""),
     status: (row.status as AdminApplicationStatus) ?? "待查看",
     createdAt: String(row.created_at ?? ""),
   };
@@ -284,7 +285,7 @@ export async function listAdminApplications(filters: {
 
   if (filters.query?.trim()) {
     const pattern = `%${filters.query.trim()}%`;
-    request = request.or(`opportunity_title.ilike.${pattern},note.ilike.${pattern}`);
+    request = request.or(`opportunity_title.ilike.${pattern},note.ilike.${pattern},contact.ilike.${pattern}`);
   }
 
   const { data, error } = await request;

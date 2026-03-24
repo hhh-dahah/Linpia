@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useTransition } from "react";
 
@@ -41,7 +41,7 @@ export function AdminCaseForm() {
         }
       });
       setFieldErrors(nextErrors);
-      setServerState({ status: "error", message: "案例信息还没填完整，请按提示补充" });
+      setServerState({ status: "error", message: "案例信息还没填完整，请按提示补充。" });
       scrollToFirstError(nextErrors);
       return;
     }
@@ -86,11 +86,9 @@ export function AdminCaseForm() {
           name="summary"
           rows={4}
           value={values.summary}
-          onChange={(event) =>
-            setValues((current) => ({ ...current, summary: event.target.value }))
-          }
+          onChange={(event) => setValues((current) => ({ ...current, summary: event.target.value }))}
           className="field-base"
-          placeholder="说明这个案例是怎么配队、落地、拿结果的"
+          placeholder="说明这个案例是怎么配队、落地、拿结果的。"
         />
         <FieldError message={fieldErrors.summary} />
       </label>
@@ -100,9 +98,7 @@ export function AdminCaseForm() {
           <FieldLabel required>结果标签</FieldLabel>
           <button
             type="button"
-            onClick={() =>
-              setValues((current) => ({ ...current, resultTags: [...current.resultTags, ""] }))
-            }
+            onClick={() => setValues((current) => ({ ...current, resultTags: [...current.resultTags, ""] }))}
             className="rounded-full border border-[rgba(17,40,79,0.12)] px-4 py-2 text-sm font-semibold"
           >
             添加标签
@@ -137,7 +133,7 @@ export function AdminCaseForm() {
                     resultTags: current.resultTags.filter((_, itemIndex) => itemIndex !== index),
                   }))
                 }
-                className="rounded-full px-4 text-sm font-semibold text-[var(--danger)]"
+                className="rounded-full px-4 text-sm font-semibold text-danger"
               >
                 删除
               </button>
@@ -147,13 +143,11 @@ export function AdminCaseForm() {
       </div>
 
       <label className="block space-y-2">
-        <FieldLabel>关联机会 ID</FieldLabel>
+        <FieldLabel>关联招募 ID</FieldLabel>
         <input
           name="relatedOpportunityId"
           value={values.relatedOpportunityId}
-          onChange={(event) =>
-            setValues((current) => ({ ...current, relatedOpportunityId: event.target.value }))
-          }
+          onChange={(event) => setValues((current) => ({ ...current, relatedOpportunityId: event.target.value }))}
           className="field-base"
           placeholder="可选，不填也可以"
         />
@@ -164,9 +158,7 @@ export function AdminCaseForm() {
         <input
           name="coverPath"
           value={values.coverPath}
-          onChange={(event) =>
-            setValues((current) => ({ ...current, coverPath: event.target.value }))
-          }
+          onChange={(event) => setValues((current) => ({ ...current, coverPath: event.target.value }))}
           className="field-base"
           placeholder="https://..."
         />

@@ -1,4 +1,4 @@
-import { updateAdminApplicationStatusAction } from "@/app/actions";
+﻿import { updateAdminApplicationStatusAction } from "@/app/actions";
 import { AdminFlash } from "@/components/admin/admin-flash";
 import { listAdminApplications } from "@/lib/admin-data";
 import { adminApplicationStatuses } from "@/types/admin";
@@ -28,14 +28,16 @@ export default async function AdminApplicationsPage({
         </p>
       </section>
 
-      <AdminFlash
-        message={message === "application-updated" ? "报名状态已更新。" : ""}
-        error={error}
-      />
+      <AdminFlash message={message === "application-updated" ? "报名状态已更新。" : ""} error={error} />
 
       <section className="surface-panel rounded-[1.8rem] p-5">
         <form className="grid gap-3 rounded-[1.4rem] border border-line bg-white/75 p-4 md:grid-cols-3">
-          <input name="query" defaultValue={query} className="field-base md:col-span-2" placeholder="搜申请人、招募标题、申请备注" />
+          <input
+            name="query"
+            defaultValue={query}
+            className="field-base md:col-span-2"
+            placeholder="搜申请人、招募标题、联系方式"
+          />
           <select name="status" defaultValue={status} className="field-base">
             <option value="">全部状态</option>
             {adminApplicationStatuses.map((item) => (
@@ -68,20 +70,24 @@ export default async function AdminApplicationsPage({
                     <p className="mt-1 text-sm leading-7 text-[var(--foreground)]">{item.opportunityTitle}</p>
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-[var(--muted)]">申请备注</p>
-                    <p className="mt-1 text-sm leading-7 text-[var(--foreground)]">{item.note || "未填写"}</p>
+                    <p className="text-sm font-medium text-[var(--muted)]">自我介绍</p>
+                    <p className="mt-1 text-sm leading-7 text-[var(--foreground)]">{item.introduction || "未填写"}</p>
                   </div>
-                  {item.trialTaskUrl ? (
+                  <div>
+                    <p className="text-sm font-medium text-[var(--muted)]">联系方式</p>
+                    <p className="mt-1 text-sm leading-7 text-[var(--foreground)]">{item.contact || "未填写"}</p>
+                  </div>
+                  {item.proofUrl ? (
                     <div>
-                      <p className="text-sm font-medium text-[var(--muted)]">补充链接</p>
-                      <a href={item.trialTaskUrl} target="_blank" rel="noreferrer" className="mt-1 inline-flex text-sm font-semibold text-[var(--primary)]">
-                        {item.trialTaskUrl}
+                      <p className="text-sm font-medium text-[var(--muted)]">作品证明链接</p>
+                      <a href={item.proofUrl} target="_blank" rel="noreferrer" className="mt-1 inline-flex text-sm font-semibold text-[var(--primary)]">
+                        {item.proofUrl}
                       </a>
                     </div>
                   ) : null}
                 </div>
 
-                  <form action={updateAdminApplicationStatusAction} className="w-full rounded-[1.4rem] border border-line bg-surface-muted p-4 xl:w-72">
+                <form action={updateAdminApplicationStatusAction} className="w-full rounded-[1.4rem] border border-line bg-surface-muted p-4 xl:w-72">
                   <input type="hidden" name="applicationId" value={item.id} />
                   <p className="text-sm font-medium text-[var(--muted)]">更新状态</p>
                   <select name="status" defaultValue={item.status} className="field-base mt-3">
@@ -100,7 +106,7 @@ export default async function AdminApplicationsPage({
           ))}
 
           {!items.length ? (
-          <div className="rounded-[1.5rem] border border-line border-dashed px-4 py-12 text-center text-sm text-[var(--muted)]">
+            <div className="rounded-[1.5rem] border border-line border-dashed px-4 py-12 text-center text-sm text-[var(--muted)]">
               当前筛选下还没有报名记录。
             </div>
           ) : null}

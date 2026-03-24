@@ -14,8 +14,8 @@ export function FieldLabel({ children, required = false, className }: FieldLabel
         className={cn(
           "rounded-full px-2 py-0.5 text-xs font-semibold",
           required
-            ? "bg-[rgba(217,45,32,0.1)] text-[var(--danger)]"
-            : "bg-[rgba(17,40,79,0.06)] text-[var(--muted)]",
+            ? "bg-[rgba(217,45,32,0.1)] text-danger"
+            : "bg-[rgba(17,40,79,0.06)] text-muted",
         )}
       >
         {required ? "必填" : "选填"}

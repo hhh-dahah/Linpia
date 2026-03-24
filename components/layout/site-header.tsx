@@ -23,10 +23,8 @@ export async function SiteHeader() {
               />
             </div>
             <div className="min-w-0">
-              <div className="font-display text-base font-bold tracking-tight text-[var(--foreground)] sm:text-lg">
-                邻派 Linpai
-              </div>
-              <p className="text-xs text-[var(--muted)] sm:text-sm">校园合作与招募平台</p>
+              <div className="font-display text-base font-bold tracking-tight text-foreground sm:text-lg">邻派 Linpai</div>
+              <p className="text-xs text-muted sm:text-sm">校园合作与招募平台</p>
             </div>
           </Link>
 
@@ -58,18 +56,10 @@ export async function SiteHeader() {
               </>
             ) : (
               <>
-                <Link
-                  href="/login"
-                  prefetch
-                  className="ui-button-secondary px-4 py-2 text-sm font-semibold active:scale-[0.97]"
-                >
+                <Link href="/login" prefetch className="ui-button-secondary px-4 py-2 text-sm font-semibold active:scale-[0.97]">
                   登录
                 </Link>
-                <Link
-                  href="/publish"
-                  prefetch
-                  className="ui-button-primary px-4 py-2 text-sm font-semibold active:scale-[0.97]"
-                >
+                <Link href="/publish" prefetch className="ui-button-primary px-4 py-2 text-sm font-semibold active:scale-[0.97]">
                   发布招募
                 </Link>
               </>

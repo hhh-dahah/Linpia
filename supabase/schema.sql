@@ -1,4 +1,4 @@
-create extension if not exists "pgcrypto";
+﻿create extension if not exists "pgcrypto";
 
 create table if not exists public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
@@ -19,7 +19,7 @@ create table if not exists public.profiles (
   achievements text[] not null default '{}',
   experience text,
   contact text,
-  contact_hint text default '登录后可进一步联系。',
+  contact_hint text default '鐧诲綍鍚庡彲杩涗竴姝ヨ仈绯汇€?,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -83,7 +83,7 @@ create table if not exists public.opportunities (
   contact_info text,
   cover_path text,
   feishu_url text,
-  status text not null default '开放申请',
+  status text not null default '寮€鏀剧敵璇?,
   weekly_hours text not null,
   progress text not null,
   trial_task text,
@@ -92,7 +92,6 @@ create table if not exists public.opportunities (
   custom_tags text[] not null default '{}',
   deliverables text[] not null default '{}',
   project_name text,
-  people_needed text,
   research_direction text,
   target_audience text,
   support_method text,
@@ -101,24 +100,15 @@ create table if not exists public.opportunities (
   updated_at timestamptz not null default now()
 );
 
-create table if not exists public.opportunity_roles (
-  id uuid primary key default gen_random_uuid(),
-  opportunity_id uuid not null references public.opportunities (id) on delete cascade,
-  role_name text not null,
-  responsibility text not null,
-  requirements text not null,
-  headcount integer not null default 1,
-  weekly_hours text not null
-);
-
 create table if not exists public.applications (
   id uuid primary key default gen_random_uuid(),
   opportunity_id uuid not null references public.opportunities (id) on delete cascade,
   applicant_id uuid not null references auth.users (id) on delete cascade,
   opportunity_title text,
   note text not null,
-  status text not null default '待查看',
-  trial_task_url text,
+  status text not null default '寰呮煡鐪?,
+  contact text not null default '',
+  proof_url text,
   created_at timestamptz not null default now(),
   unique (opportunity_id, applicant_id)
 );
@@ -204,7 +194,6 @@ create index if not exists idx_opportunities_created_at_desc on public.opportuni
 create index if not exists idx_opportunities_status_created_at_desc on public.opportunities (status, created_at desc);
 create index if not exists idx_opportunities_type_created_at_desc on public.opportunities (type, created_at desc);
 create index if not exists idx_opportunities_creator_id_created_at_desc on public.opportunities (creator_id, created_at desc);
-create index if not exists idx_opportunity_roles_opportunity_id on public.opportunity_roles (opportunity_id);
 create index if not exists idx_applications_applicant_id_created_at_desc on public.applications (applicant_id, created_at desc);
 create index if not exists idx_applications_opportunity_id_created_at_desc on public.applications (opportunity_id, created_at desc);
 create index if not exists idx_profiles_role_updated_at_desc on public.profiles (role, updated_at desc);
@@ -220,7 +209,6 @@ alter table public.profiles enable row level security;
 alter table public.student_profiles enable row level security;
 alter table public.mentor_profiles enable row level security;
 alter table public.opportunities enable row level security;
-alter table public.opportunity_roles enable row level security;
 alter table public.applications enable row level security;
 alter table public.mentors enable row level security;
 alter table public.cases enable row level security;
@@ -271,30 +259,6 @@ for all
 using (auth.uid() = creator_id)
 with check (auth.uid() = creator_id);
 
-drop policy if exists "public can read opportunity roles" on public.opportunity_roles;
-create policy "public can read opportunity roles"
-on public.opportunity_roles for select using (true);
-
-drop policy if exists "creator manages own opportunity roles" on public.opportunity_roles;
-create policy "creator manages own opportunity roles"
-on public.opportunity_roles
-for all
-using (
-  exists (
-    select 1
-    from public.opportunities
-    where public.opportunities.id = public.opportunity_roles.opportunity_id
-      and public.opportunities.creator_id = auth.uid()
-  )
-)
-with check (
-  exists (
-    select 1
-    from public.opportunities
-    where public.opportunities.id = public.opportunity_roles.opportunity_id
-      and public.opportunities.creator_id = auth.uid()
-  )
-);
 
 drop policy if exists "users can read own applications" on public.applications;
 create policy "users can read own applications"
@@ -391,3 +355,4 @@ drop policy if exists "authenticated can update opportunity covers" on storage.o
 create policy "authenticated can update opportunity covers"
 on storage.objects for update
 using (bucket_id = 'opportunity-covers' and auth.role() = 'authenticated');
+

@@ -13,7 +13,8 @@ import { applicationSchema } from "@/validators/application";
 export function ApplicationForm({ opportunityId }: { opportunityId: string }) {
   const [values, setValues] = useState({
     note: "",
-    trialTaskUrl: "",
+    contact: "",
+    proofUrl: "",
   });
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [serverState, setServerState] = useState<ActionState>(initialActionState);
@@ -26,7 +27,8 @@ export function ApplicationForm({ opportunityId }: { opportunityId: string }) {
     const payload = {
       opportunityId,
       note: values.note,
-      trialTaskUrl: values.trialTaskUrl,
+      contact: values.contact,
+      proofUrl: values.proofUrl,
     };
 
     const parsed = applicationSchema.safeParse(payload);
@@ -67,32 +69,46 @@ export function ApplicationForm({ opportunityId }: { opportunityId: string }) {
   return (
     <form onSubmit={handleSubmit} className="mt-5 space-y-4">
       <input type="hidden" name="opportunityId" value={opportunityId} />
+
       <label className="block space-y-2">
-        <FieldLabel required>报名备注</FieldLabel>
+        <FieldLabel required>自我介绍</FieldLabel>
         <textarea
           name="note"
           rows={4}
           value={values.note}
           onChange={(event) => setValues((current) => ({ ...current, note: event.target.value }))}
-          placeholder="简单介绍你的经历、可投入时间，以及为什么适合这个招募。"
+          placeholder="简单介绍你自己、相关经历，以及为什么适合这次合作。"
           className="field-base"
         />
         <FieldError message={fieldErrors.note} />
       </label>
+
       <label className="block space-y-2">
-        <FieldLabel>试合作链接</FieldLabel>
+        <FieldLabel required>联系方式</FieldLabel>
         <input
-          name="trialTaskUrl"
-          value={values.trialTaskUrl}
-          onChange={(event) =>
-            setValues((current) => ({ ...current, trialTaskUrl: event.target.value }))
-          }
+          name="contact"
+          value={values.contact}
+          onChange={(event) => setValues((current) => ({ ...current, contact: event.target.value }))}
+          placeholder="例如微信号、手机号或平台内联系说明"
+          className="field-base"
+        />
+        <FieldError message={fieldErrors.contact} />
+      </label>
+
+      <label className="block space-y-2">
+        <FieldLabel>作品证明链接</FieldLabel>
+        <input
+          name="proofUrl"
+          value={values.proofUrl}
+          onChange={(event) => setValues((current) => ({ ...current, proofUrl: event.target.value }))}
           placeholder="https://..."
           className="field-base"
         />
-        <FieldError message={fieldErrors.trialTaskUrl} />
+        <FieldError message={fieldErrors.proofUrl} />
       </label>
+
       <FormFeedback state={serverState} />
+
       <button
         type="submit"
         disabled={isPending}

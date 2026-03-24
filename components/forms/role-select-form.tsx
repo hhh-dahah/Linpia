@@ -45,13 +45,12 @@ export function RoleSelectForm({ nextPath }: { nextPath: string }) {
               : ""
           }`}
         >
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[rgba(36,107,250,0.12)] text-[var(--primary)]">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[rgba(36,107,250,0.12)] text-primary">
             <GraduationCap className="h-5 w-5" />
           </div>
-          <h2 className="mt-4 text-xl font-bold text-[var(--foreground)]">我是学生</h2>
-          <p className="mt-2 text-sm leading-7 text-[var(--muted)]">
-            用于展示技能、加入队伍、报名合作，也可以作为学生队长发布招募。
-          </p>
+          <h2 className="mt-4 text-xl font-bold text-foreground">我是学生</h2>
+          <p className="mt-2 text-sm leading-7 text-muted">
+            用于展示技能、加入队伍、报名合作，也可以作为学生队长发布招募�?          </p>
         </button>
 
         <button
@@ -67,10 +66,9 @@ export function RoleSelectForm({ nextPath }: { nextPath: string }) {
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[rgba(255,159,74,0.14)] text-[#c26e25]">
             <Orbit className="h-5 w-5" />
           </div>
-          <h2 className="mt-4 text-xl font-bold text-[var(--foreground)]">我是导师</h2>
-          <p className="mt-2 text-sm leading-7 text-[var(--muted)]">
-            用于展示研究方向、支持方式，也可以通过同一个入口发布带队或合作招募。
-          </p>
+          <h2 className="mt-4 text-xl font-bold text-foreground">我是导师</h2>
+          <p className="mt-2 text-sm leading-7 text-muted">
+            用于展示研究方向、支持方式，也可以通过同一个入口发布带队或合作招募�?          </p>
         </button>
       </div>
 

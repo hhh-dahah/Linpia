@@ -1,4 +1,5 @@
 import type { AccountRole } from "@/types/account";
+import { applicationStatuses, type ApplicationStatus } from "@/types/application";
 import type { OpportunityStatus, OpportunityType } from "@/types/opportunity";
 
 export const adminRoles = ["super_admin", "operator"] as const;
@@ -10,8 +11,8 @@ export type DirectoryPersonSource = (typeof directoryPersonSources)[number];
 export const visibilityStatuses = ["active", "hidden", "archived"] as const;
 export type VisibilityStatus = (typeof visibilityStatuses)[number];
 
-export const adminApplicationStatuses = ["待查看", "沟通中", "已通过", "未通过"] as const;
-export type AdminApplicationStatus = (typeof adminApplicationStatuses)[number];
+export const adminApplicationStatuses = applicationStatuses;
+export type AdminApplicationStatus = ApplicationStatus;
 
 export type AdminUser = {
   id: string;
@@ -72,8 +73,9 @@ export type AdminApplication = {
   applicantId: string;
   applicantName: string;
   applicantRole: AccountRole | null;
-  note: string;
-  trialTaskUrl: string;
+  introduction: string;
+  contact: string;
+  proofUrl: string;
   status: AdminApplicationStatus;
   createdAt: string;
 };

@@ -17,7 +17,7 @@ type HomeTalentPoolSectionProps = {
 };
 
 const headingClassName =
-  "font-display text-[2.5rem] font-bold leading-[1.12] tracking-[-0.03em] text-[var(--foreground)] sm:text-[3.35rem]";
+  "font-display text-[2.5rem] font-bold leading-[1.12] tracking-[-0.03em] text-foreground sm:text-[3.35rem]";
 
 function ToggleButton({
   expanded,
@@ -37,9 +37,7 @@ function ToggleButton({
       className="ui-button-secondary px-4 py-2 text-sm font-semibold"
       aria-expanded={expanded}
     >
-      {expanded
-        ? `收起${subject}`
-        : `查看更多${subject}${hiddenCount > 0 ? `（还有 ${hiddenCount} 位）` : ""}`}
+      {expanded ? `收起${subject}` : `查看更多${subject}${hiddenCount > 0 ? `（还有 ${hiddenCount} 位）` : ""}`}
     </button>
   );
 }
@@ -58,7 +56,6 @@ export function HomeTalentPoolSection({
     if (!previewCount || mentorsExpanded) {
       return mentors;
     }
-
     return mentors.slice(0, previewCount);
   }, [mentors, mentorsExpanded, previewCount]);
 
@@ -66,7 +63,6 @@ export function HomeTalentPoolSection({
     if (!previewCount || studentsExpanded) {
       return students;
     }
-
     return students.slice(0, previewCount);
   }, [students, studentsExpanded, previewCount]);
 
@@ -138,12 +134,8 @@ export function HomeTalentPoolSection({
           </>
         ) : (
           <div className="surface-panel rounded-[2rem] p-8 text-center">
-            <h2 className="text-[1.75rem] font-bold text-[var(--foreground)]">
-              当前还没有可展示的导师资料
-            </h2>
-            <p className="mt-2 text-[0.95rem] text-[var(--muted)]">
-              导师入驻后会出现在这里。
-            </p>
+            <h2 className="text-[1.75rem] font-bold text-foreground">当前还没有可展示的导师资料</h2>
+            <p className="mt-2 text-[0.95rem] text-muted">导师入驻后会出现在这里。</p>
           </div>
         )}
       </div>
@@ -151,13 +143,13 @@ export function HomeTalentPoolSection({
       <div id="student-section" className="space-y-4">
         <div className="flex items-end justify-between gap-4">
           <div className="space-y-1.5">
-            <div className="inline-flex items-center rounded-full bg-[rgba(36,107,250,0.08)] px-3 py-1.5 text-[0.88rem] font-semibold text-[var(--primary)]">
+            <div className="inline-flex items-center rounded-full bg-[rgba(36,107,250,0.08)] px-3 py-1.5 text-[0.88rem] font-semibold text-primary">
               学生
             </div>
             <p className={headingClassName}>正在展示技能、找方向或准备加入队伍的学生</p>
           </div>
 
-          <span className="rounded-full bg-[rgba(36,107,250,0.08)] px-3 py-1 text-[0.84rem] font-semibold text-[var(--primary)]">
+          <span className="rounded-full bg-[rgba(36,107,250,0.08)] px-3 py-1 text-[0.84rem] font-semibold text-primary">
             共 {studentCount} 人
           </span>
         </div>
@@ -183,12 +175,8 @@ export function HomeTalentPoolSection({
           </>
         ) : (
           <div className="surface-panel rounded-[2rem] p-8 text-center">
-            <h2 className="text-[1.75rem] font-bold text-[var(--foreground)]">
-              当前还没有可展示的学生资料
-            </h2>
-            <p className="mt-2 text-[0.95rem] text-[var(--muted)]">
-              先完善个人资料后，你的技能展示也会出现在这里。
-            </p>
+            <h2 className="text-[1.75rem] font-bold text-foreground">当前还没有可展示的学生资料</h2>
+            <p className="mt-2 text-[0.95rem] text-muted">先完善个人资料后，你的技能展示也会出现在这里。</p>
           </div>
         )}
       </div>

@@ -6,7 +6,7 @@ import {
   mockTalents,
 } from "@/mock/seed";
 import { unstable_cache } from "next/cache";
-import type { DashboardApplication } from "@/types/application";
+import type { DashboardApplication, ManagedOpportunityApplication } from "@/types/application";
 import type { AccountRole } from "@/types/account";
 import type { CaseCard } from "@/types/case";
 import type { MentorCard } from "@/types/mentor";
@@ -40,6 +40,7 @@ type StudentProfileRecord = Record<string, unknown>;
 type MentorProfileRecord = Record<string, unknown>;
 type LegacyMentorRecord = Record<string, unknown>;
 type ReadMode = "public" | "session";
+type ApplicationRecord = Record<string, unknown>;
 
 const DEFAULT_OPPORTUNITY_LIMIT = 24;
 const DEFAULT_TALENT_LIMIT = 12;
@@ -50,7 +51,7 @@ const TALENT_SEARCH_FETCH_LIMIT = 200;
 const presetSkillSet: Set<string> = new Set(skillOptions);
 
 const OPPORTUNITY_SELECT =
-  "id, type, title, summary, organization, school_scope, deadline, creator_id, creator_name, creator_role, creator_org_name, contact_info, cover_path, feishu_url, status, weekly_hours, progress, trial_task, skill_tags, preset_tags, custom_tags, deliverables, project_name, people_needed, research_direction, target_audience, support_method, applicant_count, created_at";
+  "id, type, title, summary, organization, school_scope, deadline, creator_id, creator_name, creator_role, creator_org_name, contact_info, cover_path, feishu_url, status, weekly_hours, progress, trial_task, skill_tags, preset_tags, custom_tags, deliverables, project_name, research_direction, target_audience, support_method, applicant_count, created_at";
 const PROFILE_SELECT =
   "id, role, name, nickname, school, major, grade, bio, avatar_path, portfolio_cover_path, portfolio_external_url, time_commitment, skill_tags, interested_directions, achievements, experience, contact, contact_hint, updated_at";
 const STUDENT_PROFILE_SELECT =
@@ -144,25 +145,6 @@ function serializeFilters(filters: ListFilters) {
     school: normalizeFilterValue(filters.school),
     skill: normalizeFilterValue(filters.skill),
   };
-}
-
-function buildRoleMap(roleRows?: Array<Record<string, unknown>> | null) {
-  const roleMap = new Map<string, OpportunityDetail["roleGaps"]>();
-
-  roleRows?.forEach((role) => {
-    const current = roleMap.get(String(role.opportunity_id)) ?? [];
-    current.push({
-      id: String(role.id),
-      roleName: String(role.role_name),
-      responsibility: String(role.responsibility),
-      requirements: String(role.requirements),
-      headcount: Number(role.headcount),
-      weeklyHours: String(role.weekly_hours),
-    });
-    roleMap.set(String(role.opportunity_id), current);
-  });
-
-  return roleMap;
 }
 
 function getProfileClient(mode: ReadMode) {
@@ -414,7 +396,7 @@ async function attachStudentTimeCommitment(
   }));
 }
 
-function normalizeOpportunity(record: Record<string, unknown>, roleGaps: OpportunityDetail["roleGaps"]) {
+function normalizeOpportunity(record: Record<string, unknown>) {
   const tags = [
     ...(Array.isArray(record.preset_tags) ? (record.preset_tags as string[]) : []),
     ...(Array.isArray(record.custom_tags) ? (record.custom_tags as string[]) : []),
@@ -454,7 +436,6 @@ function normalizeOpportunity(record: Record<string, unknown>, roleGaps: Opportu
     coverPath: (record.cover_path as string | null) ?? null,
     feishuUrl: (record.feishu_url as string | null) ?? null,
     createdAt: String(record.created_at ?? ""),
-    roleSummary: roleGaps.map((item) => item.roleName),
     isDemo: Boolean(record.is_demo) || String(record.title ?? "").includes("Demo"),
     progress: String(record.progress ?? ""),
     trialTask: String(record.trial_task ?? ""),
@@ -463,14 +444,65 @@ function normalizeOpportunity(record: Record<string, unknown>, roleGaps: Opportu
         ? supplementaryItems
         : [
             record.project_name ? `项目 / 比赛名称：${String(record.project_name)}` : "",
-            record.people_needed ? `需要什么人：${String(record.people_needed)}` : "",
             record.research_direction ? `研究 / 指导方向：${String(record.research_direction)}` : "",
             record.target_audience ? `面向对象：${String(record.target_audience)}` : "",
             record.support_method ? `支持方式：${String(record.support_method)}` : "",
             record.contact_info ? `联系说明：${String(record.contact_info)}` : "",
           ].filter(Boolean),
-    roleGaps,
   };
+}
+
+function normalizeManagedOpportunityApplication(
+  row: ApplicationRecord,
+  applicant?: ProfileRecord | null,
+): ManagedOpportunityApplication {
+  return {
+    id: String(row.id ?? ""),
+    opportunityId: String(row.opportunity_id ?? ""),
+    applicantId: String(row.applicant_id ?? ""),
+    applicantName: String(applicant?.nickname ?? applicant?.name ?? "未命名用户"),
+    applicantRole: (applicant?.role as AccountRole | null) ?? null,
+    introduction: String(row.note ?? ""),
+    contact: String(row.contact ?? ""),
+    proofUrl: String(row.proof_url ?? row.trial_task_url ?? ""),
+    status: (row.status as ManagedOpportunityApplication["status"]) ?? "待查看",
+    submittedAt: String(row.created_at ?? ""),
+  };
+}
+
+async function loadApplicationsForOpportunities(
+  supabase: Awaited<ReturnType<typeof getReadClient>>,
+  opportunityIds: string[],
+) {
+  if (opportunityIds.length === 0) {
+    return [] as ApplicationRecord[];
+  }
+
+  const nextIds = [...new Set(opportunityIds)];
+  let result: { data: ApplicationRecord[] | null; error: { message: string } | null } = await supabase
+    .from("applications")
+    .select("id, opportunity_id, applicant_id, note, contact, proof_url, status, created_at")
+    .in("opportunity_id", nextIds)
+    .order("created_at", { ascending: false });
+
+  if (result.error && /column .*contact.* does not exist|column .*proof_url.* does not exist/i.test(result.error.message)) {
+    const fallback = await supabase
+      .from("applications")
+      .select("id, opportunity_id, applicant_id, note, trial_task_url, status, created_at")
+      .in("opportunity_id", nextIds)
+      .order("created_at", { ascending: false });
+
+    result = {
+      data: (fallback.data as ApplicationRecord[] | null) ?? null,
+      error: fallback.error ? { message: fallback.error.message } : null,
+    };
+  }
+
+  if (result.error || !result.data) {
+    return [] as ApplicationRecord[];
+  }
+
+  return result.data as ApplicationRecord[];
 }
 
 function filterOpportunities(items: OpportunityDetail[], filters: ListFilters) {
@@ -563,17 +595,7 @@ const getCachedOpportunities = unstable_cache(
       throw error ?? new Error("Failed to load opportunities");
     }
 
-    const opportunityIds = data.map((item) => String(item.id));
-    const { data: roleRows, error: rolesError } = opportunityIds.length
-      ? await supabase.from("opportunity_roles").select("*").in("opportunity_id", opportunityIds)
-      : { data: [], error: null };
-
-    if (rolesError) {
-      throw rolesError;
-    }
-
-    const roleMap = buildRoleMap(roleRows as Array<Record<string, unknown>> | null);
-    return data.map((item) => normalizeOpportunity(item as Record<string, unknown>, roleMap.get(String(item.id)) ?? []));
+    return data.map((item) => normalizeOpportunity(item as Record<string, unknown>));
   },
   ["public-opportunities"],
   { revalidate: 30, tags: ["opportunities"] },
@@ -738,24 +760,18 @@ export async function getOpportunityById(id: string) {
 
   try {
     const supabase = getPublicReadClient();
-    const [{ data: opportunity, error }, { data: roles, error: rolesError }] = await Promise.all([
-      supabase
-        .from("opportunities")
-        .select(OPPORTUNITY_SELECT)
-        .eq("id", id)
-        .eq("visibility_status", "active")
-        .maybeSingle(),
-      supabase.from("opportunity_roles").select("*").eq("opportunity_id", id),
-    ]);
+    const { data: opportunity, error } = await supabase
+      .from("opportunities")
+      .select(OPPORTUNITY_SELECT)
+      .eq("id", id)
+      .eq("visibility_status", "active")
+      .maybeSingle();
 
-    if (error || !opportunity || rolesError) {
+    if (error || !opportunity) {
       return null;
     }
 
-    const normalized = normalizeOpportunity(
-      opportunity as Record<string, unknown>,
-      buildRoleMap(roles as Array<Record<string, unknown>> | null).get(id) ?? [],
-    );
+    const normalized = normalizeOpportunity(opportunity as Record<string, unknown>);
     return normalized.isDemo ? null : normalized;
   } catch {
     return null;
@@ -1084,11 +1100,15 @@ export async function getDashboardSnapshot(userId?: string | null, role?: Accoun
       role === "mentor" ? getMentorProfileByUserId(userId) : getStudentProfileByUserId(userId),
     ]);
 
-    const opportunityIds = opportunities.data?.map((item) => String(item.id)) ?? [];
-    const { data: roleRows } = opportunityIds.length
-      ? await supabase.from("opportunity_roles").select("*").in("opportunity_id", opportunityIds)
-      : { data: [] };
-    const roleMap = buildRoleMap(roleRows as Array<Record<string, unknown>> | null);
+    const opportunityRows = (opportunities.data ?? []) as Array<Record<string, unknown>>;
+    const opportunityIds = opportunityRows.map((item) => String(item.id));
+    const opportunityApplications = await loadApplicationsForOpportunities(supabase, opportunityIds);
+    const applicantCountMap = new Map<string, number>();
+
+    opportunityApplications.forEach((item) => {
+      const opportunityId = String(item.opportunity_id ?? "");
+      applicantCountMap.set(opportunityId, (applicantCountMap.get(opportunityId) ?? 0) + 1);
+    });
 
     return {
       profile,
@@ -1100,8 +1120,12 @@ export async function getDashboardSnapshot(userId?: string | null, role?: Accoun
           submittedAt: String(item.created_at ?? ""),
         })) ?? [],
       opportunities:
-        opportunities.data
-          ?.map((item) => normalizeOpportunity(item as Record<string, unknown>, roleMap.get(String(item.id)) ?? [])) ?? [],
+        opportunityRows.map((item) =>
+          normalizeOpportunity({
+            ...item,
+            applicant_count: applicantCountMap.get(String(item.id)) ?? Number(item.applicant_count ?? 0),
+          }),
+        ) ?? [],
     };
   } catch {
     return {
@@ -1109,5 +1133,51 @@ export async function getDashboardSnapshot(userId?: string | null, role?: Accoun
       applications: mockDashboardApplications,
       opportunities: mockOpportunities.slice(0, 2),
     };
+  }
+}
+
+export async function getManagedOpportunityApplications(opportunityId: string, userId: string) {
+  if (!hasSupabaseEnv()) {
+    return null;
+  }
+
+  try {
+    const supabase = await getReadClient();
+    const { data: opportunity, error } = await supabase
+      .from("opportunities")
+      .select(OPPORTUNITY_SELECT)
+      .eq("id", opportunityId)
+      .eq("creator_id", userId)
+      .maybeSingle();
+
+    if (error || !opportunity) {
+      return null;
+    }
+
+    const applicationRows = await loadApplicationsForOpportunities(supabase, [opportunityId]);
+    const applicantIds = applicationRows.map((item) => String(item.applicant_id ?? "")).filter(Boolean);
+    const uniqueApplicantIds = [...new Set(applicantIds)];
+    const { data: applicants } = uniqueApplicantIds.length
+      ? await supabase.from("profiles").select("id, name, nickname, role").in("id", uniqueApplicantIds)
+      : { data: [] as ProfileRecord[] };
+
+    const applicantMap = new Map(
+      (applicants ?? []).map((item) => [String(item.id), item as ProfileRecord]),
+    );
+
+    return {
+      opportunity: normalizeOpportunity({
+        ...(opportunity as Record<string, unknown>),
+        applicant_count: applicationRows.length,
+      }),
+      applications: applicationRows.map((item) =>
+        normalizeManagedOpportunityApplication(
+          item,
+          applicantMap.get(String(item.applicant_id ?? "")) ?? null,
+        ),
+      ),
+    };
+  } catch {
+    return null;
   }
 }

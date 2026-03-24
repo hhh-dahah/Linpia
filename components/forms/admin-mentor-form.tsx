@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useTransition } from "react";
 
@@ -11,7 +11,14 @@ import { FieldLabel } from "@/components/ui/field-label";
 import { initialActionState, type ActionState } from "@/types/action";
 import { mentorSchema } from "@/validators/mentor";
 
-const defaultDirectionTags = ["AI 工具", "机器人", "控制系统", "视觉传播", "学生项目", "实验室合作"];
+const defaultDirectionTags = [
+  "AI 工具",
+  "机器人",
+  "控制系统",
+  "视觉传播",
+  "学生项目",
+  "实验室合作",
+];
 
 export function AdminMentorForm() {
   const [values, setValues] = useState({
@@ -46,7 +53,15 @@ export function AdminMentorForm() {
       directionTags: values.directionTags.map((item) => item.trim()).filter(Boolean),
     };
 
-    const parsed = mentorSchema.safeParse(payload);
+    const parsed = mentorSchema.safeParse({
+      ...payload,
+      school: "",
+      college: "",
+      lab: "",
+      supportMethod: "管理员录入",
+      applicationNotes: "",
+    });
+
     if (!parsed.success) {
       const nextErrors: Record<string, string> = {};
       parsed.error.issues.forEach((issue) => {
@@ -56,7 +71,7 @@ export function AdminMentorForm() {
         }
       });
       setFieldErrors(nextErrors);
-      setServerState({ status: "error", message: "导师信息还没填完整，请按提示补充" });
+      setServerState({ status: "error", message: "导师信息还没填完整，请按提示补充。" });
       scrollToFirstError(nextErrors);
       return;
     }
@@ -91,7 +106,7 @@ export function AdminMentorForm() {
             value={values.name}
             onChange={(event) => setValues((current) => ({ ...current, name: event.target.value }))}
             className="field-base"
-            placeholder="导师姓名"
+            placeholder="例如：王老师"
           />
           <FieldError message={fieldErrors.name} />
         </label>
@@ -105,7 +120,7 @@ export function AdminMentorForm() {
               setValues((current) => ({ ...current, organization: event.target.value }))
             }
             className="field-base"
-            placeholder="学院 / 实验室 / 工作室"
+            placeholder="例如：兰州交通大学 / AI+设计工作室"
           />
           <FieldError message={fieldErrors.organization} />
         </label>
@@ -121,7 +136,7 @@ export function AdminMentorForm() {
             setValues((current) => ({ ...current, direction: event.target.value }))
           }
           className="field-base"
-          placeholder="说明导师能提供什么方向支持"
+          placeholder="说明导师主要提供哪些方向、资源或带队支持。"
         />
         <FieldError message={fieldErrors.direction} />
       </label>
@@ -171,7 +186,7 @@ export function AdminMentorForm() {
               key={item}
               className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm transition ${
                 values.supportScope.includes(item)
-                  ? "border-[rgba(36,107,250,0.3)] bg-[rgba(36,107,250,0.08)] text-[var(--primary-strong)]"
+                  ? "border-[rgba(36,107,250,0.3)] bg-[rgba(36,107,250,0.08)] text-primary-strong"
                   : "border-[rgba(17,40,79,0.12)] bg-white"
               }`}
             >
@@ -190,7 +205,7 @@ export function AdminMentorForm() {
       </div>
 
       <label className="block space-y-2">
-        <FieldLabel required>联系说明</FieldLabel>
+        <FieldLabel required>联系方式说明</FieldLabel>
         <input
           name="contactMode"
           value={values.contactMode}
@@ -198,7 +213,7 @@ export function AdminMentorForm() {
             setValues((current) => ({ ...current, contactMode: event.target.value }))
           }
           className="field-base"
-          placeholder="例如：平台申请后统一联系"
+          placeholder="例如：平台申请后统一联系 / 邮件联系"
         />
         <FieldError message={fieldErrors.contactMode} />
       </label>
@@ -217,7 +232,7 @@ export function AdminMentorForm() {
         <FieldError message={fieldErrors.avatarPath} />
       </label>
 
-      <label className="inline-flex items-center gap-2 text-sm font-medium text-[var(--foreground)]">
+      <label className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
         <input
           type="checkbox"
           name="isOpen"

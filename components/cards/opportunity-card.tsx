@@ -8,7 +8,7 @@ export function OpportunityCard({ item }: { item: OpportunityCardType }) {
     <article className="surface-card rounded-[1.75rem] p-6 hover:-translate-y-1">
       <div className="flex flex-wrap items-center gap-3">
         <span className="chip">{item.type}</span>
-        <span className="rounded-full bg-[rgba(36,107,250,0.08)] px-3 py-1 text-xs font-semibold text-[var(--primary)]">
+        <span className="rounded-full bg-[rgba(36,107,250,0.08)] px-3 py-1 text-xs font-semibold text-primary">
           {item.creatorRoleLabel}
         </span>
         {item.isDemo ? (
@@ -20,32 +20,36 @@ export function OpportunityCard({ item }: { item: OpportunityCardType }) {
           {item.status}
         </span>
       </div>
-      <h3 className="mt-4 text-xl font-bold tracking-tight text-[var(--foreground)]">{item.title}</h3>
-      <p className="mt-3 text-sm leading-7 text-[var(--muted)]">{item.summary}</p>
+
+      <h3 className="mt-4 text-xl font-bold tracking-tight text-foreground">{item.title}</h3>
+      <p className="mt-3 text-sm leading-7 text-muted">{item.summary}</p>
+
       <div className="mt-5 flex flex-wrap gap-2">
         {item.tags.length ? (
           item.tags.map((tag) => (
             <span
               key={tag}
-              className="rounded-full bg-[rgba(24,35,56,0.05)] px-3 py-1 text-xs font-medium text-[var(--foreground)]"
+              className="rounded-full bg-[rgba(24,35,56,0.05)] px-3 py-1 text-xs font-medium text-foreground"
             >
               {tag}
             </span>
           ))
         ) : (
-          <span className="rounded-full bg-[rgba(17,40,79,0.05)] px-3 py-1 text-xs font-medium text-[var(--muted)]">
+          <span className="rounded-full bg-[rgba(17,40,79,0.05)] px-3 py-1 text-xs font-medium text-muted">
             暂未添加标签
           </span>
         )}
       </div>
-      <div className="mt-5 grid gap-3 text-sm text-[var(--muted)] sm:grid-cols-2">
+
+      <div className="mt-5 grid gap-3 text-sm text-muted sm:grid-cols-2">
         <div>发布方：{item.creatorName}</div>
         <div>组织：{item.creatorOrganization || item.organization}</div>
-        <div>所需方向：{item.roleSummary.join(" / ") || "见详情"}</div>
+        <div>时间安排：{item.weeklyHours}</div>
         <div>截止时间：{formatDate(item.deadline)}</div>
       </div>
+
       <div className="mt-6 flex items-center justify-between gap-4">
-        <span className="text-sm font-medium text-[var(--foreground)]">已报名 {item.applicantCount} 人</span>
+        <span className="text-sm font-medium text-foreground">已报名 {item.applicantCount} 人</span>
         <div className="flex gap-2">
           <Link href={`/opportunities/${item.id}`} className="ui-button-secondary px-4 py-2 text-sm font-semibold">
             查看详情

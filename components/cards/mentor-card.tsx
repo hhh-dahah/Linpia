@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 
 import type { MentorCard as MentorCardType } from "@/types/mentor";
 
@@ -12,23 +12,23 @@ export function MentorCard({ item, detailHref = `/mentors/${item.id}` }: MentorC
     <article className="surface-card rounded-[1.75rem] p-6 hover:-translate-y-1">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h3 className="text-xl font-bold tracking-tight text-[var(--foreground)]">{item.name}</h3>
-          <p className="mt-1 text-sm text-[var(--muted)]">
+          <h3 className="text-xl font-bold tracking-tight text-foreground">{item.name}</h3>
+          <p className="mt-1 text-sm text-muted">
             {[item.school, item.college, item.lab].filter(Boolean).join(" · ") || item.organization}
           </p>
         </div>
         <span
           className={`rounded-full px-3 py-1 text-xs font-semibold ${
             item.isOpen
-              ? "bg-[rgba(24,163,111,0.12)] text-[var(--success)]"
-              : "bg-[rgba(24,35,56,0.06)] text-[var(--muted)]"
+              ? "bg-[rgba(24,163,111,0.12)] text-success"
+              : "bg-[rgba(24,35,56,0.06)] text-muted"
           }`}
         >
           {item.isOpen ? "开放申请" : "暂未开放"}
         </span>
       </div>
 
-      <p className="mt-4 text-sm leading-7 text-[var(--foreground)]">{item.direction}</p>
+      <p className="mt-4 text-sm leading-7 text-foreground">{item.direction}</p>
 
       <div className="mt-5 flex flex-wrap gap-2">
         {item.directionTags.length ? (
@@ -41,13 +41,13 @@ export function MentorCard({ item, detailHref = `/mentors/${item.id}` }: MentorC
             </span>
           ))
         ) : (
-          <span className="rounded-full bg-[rgba(24,35,56,0.05)] px-3 py-1 text-xs font-medium text-[var(--muted)]">
+          <span className="rounded-full bg-[rgba(24,35,56,0.05)] px-3 py-1 text-xs font-medium text-muted">
             研究方向待补充
           </span>
         )}
       </div>
 
-      <div className="mt-5 space-y-2 text-sm text-[var(--muted)]">
+      <div className="mt-5 space-y-2 text-sm text-muted">
         <p>可支持内容：{item.supportScope.join(" / ") || "待补充"}</p>
         <p>联系方式：{item.contactMode || "待补充"}</p>
       </div>

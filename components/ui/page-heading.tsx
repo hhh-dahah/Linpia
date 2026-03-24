@@ -16,11 +16,11 @@ export function PageHeading({ eyebrow, title, description, className }: PageHead
           {eyebrow}
         </span>
       ) : null}
-      <h1 className="font-display text-[2.5rem] font-bold leading-[1.12] tracking-[-0.03em] text-[var(--foreground)] sm:text-[3.35rem]">
+      <h1 className="font-display text-[2.5rem] font-bold leading-[1.12] tracking-[-0.03em] text-foreground sm:text-[3.35rem]">
         {title}
       </h1>
       {description ? (
-        <p className="mt-4 text-base leading-8 text-[var(--muted)] sm:text-[1.05rem]">
+        <p className="mt-4 text-base leading-8 text-muted sm:text-[1.05rem]">
           {description}
         </p>
       ) : null}

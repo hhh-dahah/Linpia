@@ -62,8 +62,8 @@ export function ImageUploadInput({
       <span className="field-label">{label}</span>
       <div className="rounded-[1.25rem] border border-dashed border-[rgba(17,40,79,0.16)] bg-white/80 p-4">
         <input ref={inputRef} type="file" name={name} accept="image/*" className="field-base" onChange={handleChange} />
-        <p className="mt-2 text-xs text-[var(--muted)]">{helper}</p>
-        {status ? <p className="mt-2 text-xs text-[var(--primary)]">{status}</p> : null}
+        <p className="mt-2 text-xs text-muted">{helper}</p>
+        {status ? <p className="mt-2 text-xs text-primary">{status}</p> : null}
         {preview ? (
           <div className="mt-4 overflow-hidden rounded-2xl border border-[rgba(17,40,79,0.08)] bg-[rgba(17,40,79,0.03)]">
             {/* eslint-disable-next-line @next/next/no-img-element */}

@@ -253,9 +253,8 @@ export async function createOpportunity(options: {
     preset_tags: ["AI"],
     custom_tags: ["自动化"],
     skill_tags: ["AI"],
-    deliverables: ["完成一次自动化回归"],
+    deliverables: ["联系说明：平台内联系", "项目 / 比赛名称：自动化测试项目"],
     project_name: options.creatorRole === "student" ? "自动化测试项目" : null,
-    people_needed: options.creatorRole === "student" ? "前端同学" : null,
     research_direction: options.creatorRole === "mentor" ? "AI内容工具" : null,
     target_audience: options.creatorRole === "mentor" ? "对 AI 感兴趣的学生" : null,
     support_method: options.creatorRole === "mentor" ? "周期指导" : null,
@@ -265,24 +264,10 @@ export async function createOpportunity(options: {
     throw new Error(opportunityError.message);
   }
 
-  const { error: roleError } = await admin.from("opportunity_roles").insert({
-    opportunity_id: opportunityId,
-    role_name: "前端同学",
-    responsibility: "负责页面实现",
-    requirements: "有基础前端能力",
-    headcount: 1,
-    weekly_hours: "每周 6 小时",
-  });
-
-  if (roleError) {
-    throw new Error(roleError.message);
-  }
-
   return opportunityId;
 }
 
 export async function deleteOpportunity(opportunityId: string) {
-  await admin.from("opportunity_roles").delete().eq("opportunity_id", opportunityId);
   await admin.from("applications").delete().eq("opportunity_id", opportunityId);
   await admin.from("opportunities").delete().eq("id", opportunityId);
 }

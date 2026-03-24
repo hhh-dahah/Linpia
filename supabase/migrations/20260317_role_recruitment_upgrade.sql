@@ -21,7 +21,6 @@ alter table public.opportunities add column if not exists contact_info text;
 alter table public.opportunities add column if not exists preset_tags text[] not null default '{}';
 alter table public.opportunities add column if not exists custom_tags text[] not null default '{}';
 alter table public.opportunities add column if not exists project_name text;
-alter table public.opportunities add column if not exists people_needed text;
 alter table public.opportunities add column if not exists research_direction text;
 alter table public.opportunities add column if not exists target_audience text;
 alter table public.opportunities add column if not exists support_method text;
