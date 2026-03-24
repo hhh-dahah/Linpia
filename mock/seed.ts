@@ -166,12 +166,14 @@ export const mockCases: CaseCard[] = [
 export const mockDashboardApplications: DashboardApplication[] = [
   {
     id: "application-1",
+    opportunityId: "smart-rail-lab",
     opportunityTitle: "智慧轨交巡检 Demo 招募前端与展示支持",
     status: "试合作中" as DashboardApplication["status"],
     submittedAt: "2026-03-11",
   },
   {
     id: "application-2",
+    opportunityId: "ai-design-studio",
     opportunityTitle: "AI+设计工作室开放学生申请",
     status: "待查看" as DashboardApplication["status"],
     submittedAt: "2026-03-13",

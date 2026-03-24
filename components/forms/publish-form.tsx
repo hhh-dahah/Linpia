@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 
-import { publishOpportunityAction } from "@/app/actions";
+import { publishOpportunityAction, updateOwnOpportunityAction } from "@/app/actions";
 import { recruitmentTagPresets } from "@/constants";
 import { scrollToFirstError } from "@/lib/form";
 import type { AccountRole } from "@/types/account";
@@ -37,6 +37,13 @@ type PublishFormState = {
 
 type ErrorMap = Record<string, string>;
 
+type PublishFormProps = {
+  role: AccountRole;
+  mode?: "create" | "edit";
+  opportunityId?: string;
+  initialValues?: Partial<PublishFormState>;
+};
+
 const defaultFormState: PublishFormState = {
   title: "",
   type: opportunityTypes[0],
@@ -54,8 +61,24 @@ const defaultFormState: PublishFormState = {
   applicationRequirementNote: "",
 };
 
-export function PublishForm({ role }: { role: AccountRole }) {
-  const [formValues, setFormValues] = useState<PublishFormState>(defaultFormState);
+function buildInitialState(initialValues?: Partial<PublishFormState>): PublishFormState {
+  return {
+    ...defaultFormState,
+    ...initialValues,
+    presetTags: initialValues?.presetTags ?? defaultFormState.presetTags,
+    customTags: initialValues?.customTags ?? defaultFormState.customTags,
+    applicationRequiredItems:
+      initialValues?.applicationRequiredItems ?? defaultFormState.applicationRequiredItems,
+  };
+}
+
+export function PublishForm({
+  role,
+  mode = "create",
+  opportunityId,
+  initialValues,
+}: PublishFormProps) {
+  const [formValues, setFormValues] = useState<PublishFormState>(() => buildInitialState(initialValues));
   const [fieldErrors, setFieldErrors] = useState<ErrorMap>({});
   const [serverState, setServerState] = useState<ActionState>(initialActionState);
   const [isPending, startTransition] = useTransition();
@@ -141,7 +164,7 @@ export function PublishForm({ role }: { role: AccountRole }) {
         }
       });
       setFieldErrors(nextErrors);
-      setServerState({ status: "error", message: "还有必填项没完成，请按提示补充。" });
+      setServerState({ status: "error", message: "还有几项没填好，请按提示补充。" });
       scrollToFirstError(nextErrors);
       return;
     }
@@ -149,7 +172,11 @@ export function PublishForm({ role }: { role: AccountRole }) {
     setFieldErrors({});
 
     startTransition(async () => {
-      const result = await publishOpportunityAction(initialActionState, formData);
+      const result =
+        mode === "edit"
+          ? await updateOwnOpportunityAction(initialActionState, formData)
+          : await publishOpportunityAction(initialActionState, formData);
+
       const nextErrors: ErrorMap = {};
       Object.entries(result.fieldErrors || {}).forEach(([key, messages]) => {
         const first = messages?.[0];
@@ -168,6 +195,7 @@ export function PublishForm({ role }: { role: AccountRole }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <input type="hidden" name="role" value={role} />
+      {opportunityId ? <input type="hidden" name="opportunityId" value={opportunityId} /> : null}
       {formValues.presetTags.map((tag) => (
         <input key={`preset-${tag}`} type="hidden" name="presetTags" value={tag} />
       ))}
@@ -416,7 +444,7 @@ export function PublishForm({ role }: { role: AccountRole }) {
         disabled={isPending}
         className="rounded-full bg-[var(--primary)] px-5 py-3 font-semibold text-white transition hover:bg-[var(--primary-strong)] disabled:cursor-not-allowed disabled:opacity-70"
       >
-        {isPending ? "发布中..." : "发布招募"}
+        {isPending ? (mode === "edit" ? "保存中..." : "发布中...") : mode === "edit" ? "保存招募修改" : "发布招募"}
       </button>
     </form>
   );

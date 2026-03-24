@@ -2,12 +2,13 @@
 
 import { useState, useTransition } from "react";
 
-import { applyOpportunityAction } from "@/app/actions";
+import { applyOpportunityAction, updateOwnApplicationAction } from "@/app/actions";
 import { FormFeedback } from "@/components/ui/form-feedback";
 import { FieldError } from "@/components/ui/field-error";
 import { FieldLabel } from "@/components/ui/field-label";
 import { scrollToFirstError } from "@/lib/form";
 import { initialActionState, type ActionState } from "@/types/action";
+import type { ApplicationSubmissionPayload } from "@/types/application";
 import {
   applicationRequiredItemLabels,
   type ApplicationRequiredItem,
@@ -18,6 +19,10 @@ type ApplicationFormProps = {
   opportunityId: string;
   requiredItems?: ApplicationRequiredItem[];
   requirementNote?: string;
+  mode?: "create" | "edit";
+  applicationId?: string;
+  initialValues?: Partial<ApplicationFormState>;
+  submitLabel?: string;
 };
 
 type ApplicationFormState = {
@@ -52,17 +57,29 @@ const fieldOrder: ApplicationRequiredItem[] = [
   "availability",
 ];
 
+function buildInitialValues(initialValues?: Partial<ApplicationFormState | ApplicationSubmissionPayload>) {
+  return {
+    ...defaultValues,
+    ...initialValues,
+  };
+}
+
 export function ApplicationForm({
   opportunityId,
   requiredItems = [],
   requirementNote,
+  mode = "create",
+  applicationId,
+  initialValues,
+  submitLabel,
 }: ApplicationFormProps) {
-  const [values, setValues] = useState<ApplicationFormState>(defaultValues);
+  const [values, setValues] = useState<ApplicationFormState>(() => buildInitialValues(initialValues));
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [serverState, setServerState] = useState<ActionState>(initialActionState);
   const [isPending, startTransition] = useTransition();
 
   const visibleItems = fieldOrder.filter((item) => requiredItems.includes(item));
+  const currentSubmitLabel = submitLabel ?? (mode === "edit" ? "保存报名信息" : "立即报名");
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -99,7 +116,11 @@ export function ApplicationForm({
     const formData = new FormData(event.currentTarget);
 
     startTransition(async () => {
-      const result = await applyOpportunityAction(initialActionState, formData);
+      const result =
+        mode === "edit"
+          ? await updateOwnApplicationAction(initialActionState, formData)
+          : await applyOpportunityAction(initialActionState, formData);
+
       const nextErrors: Record<string, string> = {};
       Object.entries(result.fieldErrors || {}).forEach(([key, messages]) => {
         const first = messages?.[0];
@@ -118,6 +139,7 @@ export function ApplicationForm({
   return (
     <form onSubmit={handleSubmit} className="mt-5 space-y-4">
       <input type="hidden" name="opportunityId" value={opportunityId} />
+      {applicationId ? <input type="hidden" name="applicationId" value={applicationId} /> : null}
 
       {requirementNote ? (
         <div className="rounded-2xl bg-[rgba(36,107,250,0.06)] px-4 py-3 text-sm leading-6 text-[var(--muted)]">
@@ -249,7 +271,7 @@ export function ApplicationForm({
         disabled={isPending}
         className="w-full rounded-full bg-[var(--accent)] px-5 py-3 font-semibold text-white transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-70"
       >
-        {isPending ? "提交中..." : "立即报名"}
+        {isPending ? "提交中..." : currentSubmitLabel}
       </button>
     </form>
   );

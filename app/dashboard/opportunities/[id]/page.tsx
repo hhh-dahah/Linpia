@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { updateOwnApplicationStatusAction } from "@/app/actions";
@@ -26,6 +26,30 @@ function getMessageState(params?: Record<string, string | string[] | undefined>)
   }
 
   return null;
+}
+
+function renderTextBlock(label: string, value: string, emptyText: string) {
+  return (
+    <div className="rounded-2xl bg-surface-muted px-4 py-4">
+      <p className="text-sm text-muted">{label}</p>
+      <p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-foreground">{value || emptyText}</p>
+    </div>
+  );
+}
+
+function renderLinkBlock(label: string, value: string, emptyText: string) {
+  return (
+    <div className="rounded-2xl bg-surface-muted px-4 py-4">
+      <p className="text-sm text-muted">{label}</p>
+      {value ? (
+        <Link href={value} target="_blank" rel="noreferrer" className="mt-2 inline-flex text-sm font-semibold text-primary">
+          打开链接
+        </Link>
+      ) : (
+        <p className="mt-2 text-sm leading-7 text-foreground">{emptyText}</p>
+      )}
+    </div>
+  );
 }
 
 export default async function ManagedOpportunityDetailPage({
@@ -64,11 +88,14 @@ export default async function ManagedOpportunityDetailPage({
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
+            <Link
+              href={`/dashboard/opportunities/${snapshot.opportunity.id}/edit`}
+              className="ui-button-primary px-4 py-2 text-sm font-semibold"
+            >
+              编辑这条招募
+            </Link>
             <Link href={`/opportunities/${snapshot.opportunity.id}`} className="ui-button-secondary px-4 py-2 text-sm font-semibold">
               查看公开详情
-            </Link>
-            <Link href="/publish" className="ui-button-primary px-4 py-2 text-sm font-semibold">
-              再发布一条招募
             </Link>
           </div>
         </div>
@@ -97,7 +124,7 @@ export default async function ManagedOpportunityDetailPage({
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold text-foreground">报名详情</h2>
-            <p className="mt-1 text-sm text-muted">在这里查看是谁报名了，并手动更新每个人的处理状态。</p>
+            <p className="mt-1 text-sm text-muted">在这里查看是谁报名了、对方提交了什么信息，并手动更新处理状态。</p>
           </div>
         </div>
 
@@ -135,34 +162,15 @@ export default async function ManagedOpportunityDetailPage({
                   </form>
                 </div>
 
-                <div className="mt-5 grid gap-4 md:grid-cols-3">
-                  <div className="rounded-2xl bg-surface-muted px-4 py-4">
-                    <p className="text-sm text-muted">自我介绍</p>
-                    <p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-foreground">
-                      {item.introduction || "对方还没有填写自我介绍。"}
-                    </p>
-                  </div>
-                  <div className="rounded-2xl bg-surface-muted px-4 py-4">
-                    <p className="text-sm text-muted">联系方式</p>
-                    <p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-foreground">
-                      {item.contact || "对方还没有填写联系方式。"}
-                    </p>
-                  </div>
-                  <div className="rounded-2xl bg-surface-muted px-4 py-4">
-                    <p className="text-sm text-muted">作品证明链接</p>
-                    {item.proofUrl ? (
-                      <Link
-                        href={item.proofUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-2 inline-flex text-sm font-semibold text-primary"
-                      >
-                        打开作品链接
-                      </Link>
-                    ) : (
-                      <p className="mt-2 text-sm leading-7 text-foreground">对方没有补充作品链接。</p>
-                    )}
-                  </div>
+                <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {renderTextBlock("自我介绍", item.introduction, "对方还没有填写自我介绍。")}
+                  {renderTextBlock("联系方式", item.contact, "对方还没有填写联系方式。")}
+                  {renderLinkBlock("作品证明链接", item.proofUrl, "对方没有补充作品链接。")}
+                  {renderTextBlock("项目经历", item.projectExperience, "对方没有补充项目经历。")}
+                  {renderTextBlock("证明材料", item.proofMaterial, "对方没有补充证明材料。")}
+                  {renderLinkBlock("简历链接", item.resumeLink, "对方没有补充简历链接。")}
+                  {renderLinkBlock("GitHub / 作品集", item.githubPortfolio, "对方没有补充 GitHub / 作品集。")}
+                  {renderTextBlock("可投入时间", item.availability, "对方没有补充可投入时间。")}
                 </div>
               </article>
             ))}

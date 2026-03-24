@@ -6,7 +6,11 @@ import {
   mockTalents,
 } from "@/mock/seed";
 import { unstable_cache } from "next/cache";
-import type { DashboardApplication, ManagedOpportunityApplication } from "@/types/application";
+import type {
+  ApplicationSubmissionPayload,
+  DashboardApplication,
+  ManagedOpportunityApplication,
+} from "@/types/application";
 import type { AccountRole } from "@/types/account";
 import type { CaseCard } from "@/types/case";
 import type { MentorCard } from "@/types/mentor";
@@ -88,6 +92,26 @@ function normalizeStringArray(value: unknown) {
   }
 
   return [...new Set(value.map(String).map((item) => item.trim()).filter(Boolean))];
+}
+
+function normalizeSubmissionPayload(value: unknown): ApplicationSubmissionPayload {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+
+  const record = value as Record<string, unknown>;
+
+  return Object.fromEntries(
+    Object.entries({
+      intro: String(record.intro ?? "").trim(),
+      portfolioLink: String(record.portfolioLink ?? "").trim(),
+      projectExperience: String(record.projectExperience ?? "").trim(),
+      proofMaterial: String(record.proofMaterial ?? "").trim(),
+      resumeLink: String(record.resumeLink ?? "").trim(),
+      githubPortfolio: String(record.githubPortfolio ?? "").trim(),
+      availability: String(record.availability ?? "").trim(),
+    }).filter(([, fieldValue]) => Boolean(fieldValue)),
+  ) as ApplicationSubmissionPayload;
 }
 
 function splitTalentSkills(value: unknown, customValue?: unknown) {
@@ -526,15 +550,28 @@ function normalizeManagedOpportunityApplication(
   row: ApplicationRecord,
   applicant?: ProfileRecord | null,
 ): ManagedOpportunityApplication {
+  const submissionPayload = normalizeSubmissionPayload(row.submission_payload);
+  const primaryProofUrl =
+    submissionPayload.portfolioLink ||
+    submissionPayload.githubPortfolio ||
+    submissionPayload.resumeLink ||
+    String(row.proof_url ?? row.trial_task_url ?? "");
+
   return {
     id: String(row.id ?? ""),
     opportunityId: String(row.opportunity_id ?? ""),
     applicantId: String(row.applicant_id ?? ""),
     applicantName: String(applicant?.nickname ?? applicant?.name ?? "未命名用户"),
     applicantRole: (applicant?.role as AccountRole | null) ?? null,
-    introduction: String(row.note ?? ""),
+    introduction: submissionPayload.intro || String(row.note ?? ""),
     contact: String(row.contact ?? ""),
-    proofUrl: String(row.proof_url ?? row.trial_task_url ?? ""),
+    proofUrl: primaryProofUrl,
+    projectExperience: submissionPayload.projectExperience ?? "",
+    proofMaterial: submissionPayload.proofMaterial ?? "",
+    resumeLink: submissionPayload.resumeLink ?? "",
+    githubPortfolio: submissionPayload.githubPortfolio ?? "",
+    availability: submissionPayload.availability ?? "",
+    submissionPayload,
     status: (row.status as ManagedOpportunityApplication["status"]) ?? "待查看",
     submittedAt: String(row.created_at ?? ""),
   };
@@ -551,11 +588,16 @@ async function loadApplicationsForOpportunities(
   const nextIds = [...new Set(opportunityIds)];
   let result: { data: ApplicationRecord[] | null; error: { message: string } | null } = await supabase
     .from("applications")
-    .select("id, opportunity_id, applicant_id, note, contact, proof_url, status, created_at")
+    .select("id, opportunity_id, applicant_id, note, contact, proof_url, submission_payload, status, created_at")
     .in("opportunity_id", nextIds)
     .order("created_at", { ascending: false });
 
-  if (result.error && /column .*contact.* does not exist|column .*proof_url.* does not exist/i.test(result.error.message)) {
+  if (
+    result.error &&
+    /column .*contact.* does not exist|column .*proof_url.* does not exist|column .*submission_payload.* does not exist/i.test(
+      result.error.message,
+    )
+  ) {
     const fallback = await supabase
       .from("applications")
       .select("id, opportunity_id, applicant_id, note, trial_task_url, status, created_at")
@@ -1157,7 +1199,7 @@ export async function getDashboardSnapshot(userId?: string | null, role?: Accoun
     const [applications, opportunities, profile] = await Promise.all([
       supabase
         .from("applications")
-        .select("id, status, created_at, opportunity_title")
+        .select("id, opportunity_id, status, created_at, opportunity_title")
         .eq("applicant_id", userId)
         .order("created_at", { ascending: false })
         .limit(DASHBOARD_APPLICATION_LIMIT),
@@ -1185,6 +1227,7 @@ export async function getDashboardSnapshot(userId?: string | null, role?: Accoun
       applications:
         applications.data?.map((item) => ({
           id: String(item.id),
+          opportunityId: String(item.opportunity_id ?? ""),
           opportunityTitle: String(item.opportunity_title ?? "未命名招募"),
           status: item.status as DashboardApplication["status"],
           submittedAt: String(item.created_at ?? ""),
@@ -1246,6 +1289,137 @@ export async function getManagedOpportunityApplications(opportunityId: string, u
           applicantMap.get(String(item.applicant_id ?? "")) ?? null,
         ),
       ),
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function getOwnApplicationById(applicationId: string, userId: string) {
+  if (!hasSupabaseEnv()) {
+    return null;
+  }
+
+  try {
+    const supabase = await getReadClient();
+    let query = await supabase
+      .from("applications")
+      .select("id, opportunity_id, applicant_id, note, contact, proof_url, submission_payload, status, created_at")
+      .eq("id", applicationId)
+      .eq("applicant_id", userId)
+      .maybeSingle();
+
+    if (
+      query.error &&
+      /column .*contact.* does not exist|column .*proof_url.* does not exist|column .*submission_payload.* does not exist/i.test(
+        query.error.message,
+      )
+    ) {
+      query = await supabase
+        .from("applications")
+        .select("id, opportunity_id, applicant_id, note, trial_task_url, status, created_at")
+        .eq("id", applicationId)
+        .eq("applicant_id", userId)
+        .maybeSingle();
+    }
+
+    if (query.error || !query.data) {
+      return null;
+    }
+
+    const row = query.data as ApplicationRecord;
+    const opportunityId = String(row.opportunity_id ?? "");
+    const [{ data: applicant }, { data: opportunity }] = await Promise.all([
+      supabase.from("profiles").select("id, name, nickname, role").eq("id", userId).maybeSingle(),
+      supabase
+        .from("opportunities")
+        .select("id, title, type, application_required_items, application_requirement_note")
+        .eq("id", opportunityId)
+        .maybeSingle(),
+    ]);
+
+    if (!opportunity) {
+      return null;
+    }
+
+    const normalized = normalizeManagedOpportunityApplication(row, (applicant as ProfileRecord | null) ?? null);
+
+    return {
+      application: normalized,
+      opportunity: {
+        id: String(opportunity.id ?? ""),
+        title: String(opportunity.title ?? ""),
+        type: String(opportunity.type ?? ""),
+        applicationRequiredItems: Array.isArray(opportunity.application_required_items)
+          ? normalizeRequiredItemsForRead(opportunity.application_required_items)
+          : [],
+        applicationRequirementNote: String(opportunity.application_requirement_note ?? "") || undefined,
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
+function normalizeRequiredItemsForRead(value: unknown) {
+  if (!Array.isArray(value)) {
+    return [] as NonNullable<OpportunityDetail["applicationRequiredItems"]>;
+  }
+
+  return value
+    .map(String)
+    .filter(
+      (item): item is NonNullable<OpportunityDetail["applicationRequiredItems"]>[number] =>
+        (applicationRequiredItemValues as readonly string[]).includes(item),
+    );
+}
+
+export async function getManagedOpportunityForEdit(opportunityId: string, userId: string) {
+  if (!hasSupabaseEnv()) {
+    return null;
+  }
+
+  try {
+    const supabase = await getReadClient();
+    const { data, error } = await supabase
+      .from("opportunities")
+      .select(OPPORTUNITY_SELECT)
+      .eq("id", opportunityId)
+      .eq("creator_id", userId)
+      .maybeSingle();
+
+    if (error || !data) {
+      return null;
+    }
+
+    const normalized = normalizeOpportunity(data as Record<string, unknown>);
+
+    return {
+      id: normalized.id,
+      role: normalized.creatorRole,
+      title: normalized.title,
+      type: normalized.type,
+      projectName:
+        String((data as Record<string, unknown>).project_name ?? "") || normalized.progress.replace(/^项目 \/ 比赛名称：/, ""),
+      summary: normalized.summary,
+      contactInfo:
+        String((data as Record<string, unknown>).contact_info ?? "") ||
+        normalized.supplementaryItems.find((item) => item.startsWith("联系方式："))?.replace("联系方式：", "") ||
+        "",
+      organization: normalized.organization === "待补充" ? "" : normalized.organization,
+      deadline: normalized.deadline.slice(0, 10),
+      weeklyHours: normalized.weeklyHours === "待沟通" ? "" : normalized.weeklyHours,
+      feishuUrl: normalized.feishuUrl ?? "",
+      presetTags: Array.isArray((data as Record<string, unknown>).preset_tags)
+        ? ((data as Record<string, unknown>).preset_tags as string[])
+        : [],
+      customTags: Array.isArray((data as Record<string, unknown>).custom_tags)
+        ? ((data as Record<string, unknown>).custom_tags as string[])
+        : [],
+      applicationRequiredItems: normalizeRequiredItemsForRead(
+        (data as Record<string, unknown>).application_required_items,
+      ),
+      applicationRequirementNote: String((data as Record<string, unknown>).application_requirement_note ?? ""),
     };
   } catch {
     return null;

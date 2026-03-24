@@ -1031,6 +1031,291 @@ export async function applyOpportunityAction(
   }
 }
 
+export async function updateOwnApplicationAction(
+  _: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const payload = {
+    applicationId: String(formData.get("applicationId") ?? ""),
+    opportunityId: String(formData.get("opportunityId") ?? ""),
+    contact: String(formData.get("contact") ?? ""),
+    intro: String(formData.get("intro") ?? ""),
+    portfolioLink: String(formData.get("portfolioLink") ?? ""),
+    projectExperience: String(formData.get("projectExperience") ?? ""),
+    proofMaterial: String(formData.get("proofMaterial") ?? ""),
+    resumeLink: String(formData.get("resumeLink") ?? ""),
+    githubPortfolio: String(formData.get("githubPortfolio") ?? ""),
+    availability: String(formData.get("availability") ?? ""),
+  };
+
+  if (!payload.applicationId) {
+    return { status: "error", message: "缺少报名记录，暂时无法修改。" };
+  }
+
+  if (!hasSupabaseEnv()) {
+    return offlineState("报名信息校验已经通过，配置 Supabase 后就可以写入真实记录。");
+  }
+
+  try {
+    const supabase = await requireConfiguredSupabase();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return offlineState("请先登录后再修改报名信息。");
+    }
+
+    const client = await getWriteClient();
+    const { data: existing } = await client
+      .from("applications")
+      .select("id, opportunity_id, applicant_id")
+      .eq("id", payload.applicationId)
+      .eq("applicant_id", user.id)
+      .maybeSingle();
+
+    if (!existing) {
+      return { status: "error", message: "没有找到这条报名记录。" };
+    }
+
+    const { data: opportunity } = await client
+      .from("opportunities")
+      .select("title, application_required_items")
+      .eq("id", payload.opportunityId)
+      .maybeSingle();
+
+    const requiredItems = normalizeRequiredItems(
+      Array.isArray(opportunity?.application_required_items)
+        ? opportunity.application_required_items.map(String)
+        : [],
+    );
+
+    const parsed = createApplicationSchema({ requiredItems }).safeParse({
+      opportunityId: payload.opportunityId,
+      contact: payload.contact,
+      intro: payload.intro,
+      portfolioLink: payload.portfolioLink,
+      projectExperience: payload.projectExperience,
+      proofMaterial: payload.proofMaterial,
+      resumeLink: payload.resumeLink,
+      githubPortfolio: payload.githubPortfolio,
+      availability: payload.availability,
+    });
+
+    if (!parsed.success) {
+      return {
+        status: "error",
+        message: "报名信息还有几项没填好，请按提示补充。",
+        fieldErrors: toFieldErrors(parsed.error),
+      };
+    }
+
+    const submissionPayload = buildApplicationSubmissionPayload(parsed.data);
+    const note = buildApplicationSummary(parsed.data, requiredItems);
+    const proofUrl = getPrimaryProofUrl(parsed.data);
+
+    let result = await client
+      .from("applications")
+      .update({
+        note,
+        contact: parsed.data.contact,
+        proof_url: proofUrl,
+        submission_payload: submissionPayload,
+      })
+      .eq("id", payload.applicationId)
+      .eq("applicant_id", user.id);
+
+    if (
+      result.error &&
+      /submission_payload|column .*contact.* does not exist|column .*proof_url.* does not exist/i.test(
+        result.error.message,
+      )
+    ) {
+      result = await client
+        .from("applications")
+        .update({
+          note,
+          trial_task_url: proofUrl,
+        })
+        .eq("id", payload.applicationId)
+        .eq("applicant_id", user.id);
+    }
+
+    if (result.error) {
+      return { status: "error", message: "报名修改失败，请稍后再试。" };
+    }
+
+    revalidatePath("/dashboard");
+    revalidatePath(`/dashboard/applications/${payload.applicationId}`);
+    revalidatePath(`/dashboard/opportunities/${payload.opportunityId}`);
+    revalidatePath(`/opportunities/${payload.opportunityId}`);
+
+    return { status: "success", message: "报名信息已更新。" };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "报名修改失败，请稍后再试。",
+    };
+  }
+}
+
+export async function updateOwnOpportunityAction(
+  _: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const role = String(formData.get("role") ?? "");
+  const opportunityId = String(formData.get("opportunityId") ?? "");
+  const payload = {
+    role: role === "mentor" ? ("mentor" as const) : ("student" as const),
+    type: String(formData.get("type") ?? ""),
+    title: String(formData.get("title") ?? ""),
+    projectName: String(formData.get("projectName") ?? ""),
+    summary: String(formData.get("summary") ?? ""),
+    contactInfo: String(formData.get("contactInfo") ?? ""),
+    organization: String(formData.get("organization") ?? ""),
+    deadline: String(formData.get("deadline") ?? ""),
+    weeklyHours: String(formData.get("weeklyHours") ?? ""),
+    feishuUrl: String(formData.get("feishuUrl") ?? ""),
+    presetTags: formData.getAll("presetTags").map(String),
+    customTags: formData.getAll("customTags").map(String),
+    applicationRequiredItems: formData.getAll("applicationRequiredItems").map(String),
+    applicationRequirementNote: String(formData.get("applicationRequirementNote") ?? ""),
+    cover: formData.get("cover"),
+  };
+
+  if (!opportunityId) {
+    return { status: "error", message: "缺少招募记录，暂时无法修改。" };
+  }
+
+  const parsed = opportunitySchema.safeParse(payload);
+  if (!parsed.success) {
+    return {
+      status: "error",
+      message: "招募表单还有几项没填好，请按提示修改。",
+      fieldErrors: toFieldErrors(parsed.error),
+    };
+  }
+
+  if (!hasSupabaseEnv()) {
+    return offlineState("表单校验已经通过，配置 Supabase 后就可以正式保存。");
+  }
+
+  try {
+    const supabase = await requireConfiguredSupabase();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return offlineState("请先登录后再修改招募。");
+    }
+
+    const currentRole = await getCurrentAccountRole(user);
+    if (!currentRole || currentRole !== parsed.data.role) {
+      return { status: "error", message: "当前身份和这条招募不匹配，请刷新后再试。" };
+    }
+
+    const client = await getWriteClient();
+    const { data: existing, error: existingError } = await client
+      .from("opportunities")
+      .select("id, creator_id, cover_path, status, applicant_count")
+      .eq("id", opportunityId)
+      .maybeSingle();
+
+    if (existingError || !existing) {
+      return { status: "error", message: "没有找到这条招募。" };
+    }
+
+    if (String(existing.creator_id ?? "") !== user.id) {
+      return { status: "error", message: "你没有权限修改这条招募。" };
+    }
+
+    const coverPath =
+      (await uploadImage({
+        supabase,
+        bucket: "opportunity-covers",
+        folder: "opportunity-covers",
+        file: parsed.data.cover,
+        ownerId: opportunityId,
+      })) ??
+      ((existing.cover_path as string | null) ?? null);
+
+    const tags = [...parsed.data.presetTags, ...parsed.data.customTags];
+    const organization = (parsed.data.organization ?? "").trim() || "待补充";
+    const deadline = parsed.data.deadline || getDefaultDeadline();
+    const weeklyHours = (parsed.data.weeklyHours ?? "").trim() || "待沟通";
+    const applicationRequiredItems = normalizeRequiredItems(parsed.data.applicationRequiredItems);
+    const applicationRequirementNote = (parsed.data.applicationRequirementNote ?? "").trim();
+    const progress = `项目 / 比赛名称：${parsed.data.projectName}`;
+    const supplementaryItems = [
+      organization ? `学校 / 团队：${organization}` : "",
+      parsed.data.contactInfo ? `联系方式：${parsed.data.contactInfo}` : "",
+    ].filter(Boolean);
+
+    const baseUpdate = {
+      type: parsed.data.type,
+      title: parsed.data.title,
+      summary: parsed.data.summary,
+      organization,
+      school_scope: organization,
+      deadline,
+      creator_org_name: organization,
+      contact_info: parsed.data.contactInfo,
+      cover_path: coverPath,
+      feishu_url: parsed.data.feishuUrl || null,
+      weekly_hours: weeklyHours,
+      progress,
+      trial_task: applicationRequirementNote || null,
+      skill_tags: tags,
+      preset_tags: parsed.data.presetTags,
+      custom_tags: parsed.data.customTags,
+      deliverables: supplementaryItems,
+      project_name: parsed.data.projectName,
+      updated_at: new Date().toISOString(),
+    };
+
+    let result = await client
+      .from("opportunities")
+      .update({
+        ...baseUpdate,
+        application_required_items: applicationRequiredItems,
+        application_requirement_note: applicationRequirementNote || null,
+      })
+      .eq("id", opportunityId)
+      .eq("creator_id", user.id);
+
+    if (
+      result.error &&
+      /application_required_items|application_requirement_note/i.test(result.error.message)
+    ) {
+      result = await client
+        .from("opportunities")
+        .update(baseUpdate)
+        .eq("id", opportunityId)
+        .eq("creator_id", user.id);
+    }
+
+    if (result.error) {
+      return { status: "error", message: "招募修改失败，请稍后再试。" };
+    }
+
+    revalidatePath("/publish");
+    revalidatePath("/dashboard");
+    revalidatePath(`/dashboard/opportunities/${opportunityId}`);
+    revalidatePath(`/dashboard/opportunities/${opportunityId}/edit`);
+    revalidatePath(`/opportunities/${opportunityId}`);
+    revalidatePath("/opportunities");
+    revalidateTag("opportunities", "max");
+
+    return { status: "success", message: "招募信息已更新。" };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "招募修改失败，请稍后再试。",
+    };
+  }
+}
+
 export async function saveMentorAction(_: ActionState, formData: FormData): Promise<ActionState> {
   const payload = {
     name: String(formData.get("name") ?? ""),
