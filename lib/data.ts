@@ -10,7 +10,10 @@ import type { DashboardApplication, ManagedOpportunityApplication } from "@/type
 import type { AccountRole } from "@/types/account";
 import type { CaseCard } from "@/types/case";
 import type { MentorCard } from "@/types/mentor";
-import type { OpportunityDetail } from "@/types/opportunity";
+import {
+  applicationRequiredItems as applicationRequiredItemValues,
+  type OpportunityDetail,
+} from "@/types/opportunity";
 import type { PersonalShowcase, TalentDetail } from "@/types/profile";
 import { createPublicSupabaseClient } from "@/supabase/public";
 import { createServerSupabaseClient } from "@/supabase/server";
@@ -51,7 +54,7 @@ const TALENT_SEARCH_FETCH_LIMIT = 200;
 const presetSkillSet: Set<string> = new Set(skillOptions);
 
 const OPPORTUNITY_SELECT =
-  "id, type, title, summary, organization, school_scope, deadline, creator_id, creator_name, creator_role, creator_org_name, contact_info, cover_path, feishu_url, status, weekly_hours, progress, trial_task, skill_tags, preset_tags, custom_tags, deliverables, project_name, research_direction, target_audience, support_method, applicant_count, created_at";
+  "id, type, title, summary, organization, school_scope, deadline, creator_id, creator_name, creator_role, creator_org_name, contact_info, cover_path, feishu_url, status, weekly_hours, progress, trial_task, skill_tags, preset_tags, custom_tags, deliverables, project_name, research_direction, target_audience, support_method, applicant_count, application_required_items, application_requirement_note, created_at";
 const PROFILE_SELECT =
   "id, role, name, nickname, school, major, grade, bio, avatar_path, portfolio_cover_path, portfolio_external_url, time_commitment, skill_tags, interested_directions, achievements, experience, contact, contact_hint, updated_at";
 const STUDENT_PROFILE_SELECT =
@@ -396,7 +399,9 @@ async function attachStudentTimeCommitment(
   }));
 }
 
-function normalizeOpportunity(record: Record<string, unknown>) {
+// Legacy mapper kept temporarily to avoid touching unrelated corrupted seed text in one sweep.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function normalizeOpportunityLegacy(record: Record<string, unknown>) {
   const tags = [
     ...(Array.isArray(record.preset_tags) ? (record.preset_tags as string[]) : []),
     ...(Array.isArray(record.custom_tags) ? (record.custom_tags as string[]) : []),
@@ -448,6 +453,71 @@ function normalizeOpportunity(record: Record<string, unknown>) {
             record.target_audience ? `面向对象：${String(record.target_audience)}` : "",
             record.support_method ? `支持方式：${String(record.support_method)}` : "",
             record.contact_info ? `联系说明：${String(record.contact_info)}` : "",
+          ].filter(Boolean),
+  };
+}
+
+function normalizeOpportunity(record: Record<string, unknown>) {
+  const tags = [
+    ...(Array.isArray(record.preset_tags) ? (record.preset_tags as string[]) : []),
+    ...(Array.isArray(record.custom_tags) ? (record.custom_tags as string[]) : []),
+  ];
+  const displayTags =
+    tags.length > 0
+      ? tags
+      : Array.isArray(record.skill_tags)
+        ? (record.skill_tags as string[])
+        : [];
+
+  const supplementaryItems = Array.isArray(record.deliverables)
+    ? (record.deliverables as string[])
+    : [];
+
+  const creatorRole = (record.creator_role === "mentor" ? "mentor" : "student") as AccountRole;
+  const applicationRequiredItems = Array.isArray(record.application_required_items)
+    ? (record.application_required_items as string[]).filter(
+        (item): item is NonNullable<OpportunityDetail["applicationRequiredItems"]>[number] =>
+          (applicationRequiredItemValues as readonly string[]).includes(item),
+      )
+    : [];
+
+  return {
+    id: String(record.id),
+    type: record.type as OpportunityDetail["type"],
+    title: String(record.title ?? ""),
+    summary: String(record.summary ?? ""),
+    organization: String(record.organization ?? record.school_scope ?? record.creator_org_name ?? ""),
+    deadline: String(record.deadline ?? new Date().toISOString()),
+    tags: displayTags,
+    status:
+      isBeforeToday(String(record.deadline ?? ""))
+        ? "已截止"
+        : ((record.status as OpportunityDetail["status"]) ?? "开放申请"),
+    weeklyHours: String(record.weekly_hours ?? "待沟通"),
+    applicantCount: Number(record.applicant_count ?? 0),
+    creatorId: String(record.creator_id ?? ""),
+    creatorName: String(record.creator_name ?? "邻派用户"),
+    creatorRole,
+    creatorRoleLabel: creatorRole === "mentor" ? "导师" : "学生队长",
+    creatorOrganization: String(record.creator_org_name ?? record.organization ?? ""),
+    coverPath: (record.cover_path as string | null) ?? null,
+    feishuUrl: (record.feishu_url as string | null) ?? null,
+    createdAt: String(record.created_at ?? ""),
+    isDemo: Boolean(record.is_demo) || String(record.title ?? "").includes("Demo"),
+    progress: String(record.progress ?? ""),
+    trialTask: String(record.trial_task ?? ""),
+    applicationRequiredItems,
+    applicationRequirementNote:
+      String(record.application_requirement_note ?? "") || undefined,
+    supplementaryItems:
+      supplementaryItems.length > 0
+        ? supplementaryItems
+        : [
+            record.project_name ? `项目 / 比赛名称：${String(record.project_name)}` : "",
+            record.research_direction ? `研究 / 指导方向：${String(record.research_direction)}` : "",
+            record.target_audience ? `面向对象：${String(record.target_audience)}` : "",
+            record.support_method ? `支持方式：${String(record.support_method)}` : "",
+            record.contact_info ? `联系方式：${String(record.contact_info)}` : "",
           ].filter(Boolean),
   };
 }

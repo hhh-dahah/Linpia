@@ -18,7 +18,12 @@ import { createServerSupabaseClient } from "@/supabase/server";
 import type { ActionState } from "@/types/action";
 import type { AdminApplicationStatus, AdminRole, VisibilityStatus } from "@/types/admin";
 import { applicationStatuses, type ApplicationStatus } from "@/types/application";
-import { applicationSchema } from "@/validators/application";
+import {
+  applicationRequiredItemLabels,
+  applicationRequiredItems as applicationRequiredItemValues,
+  type ApplicationRequiredItem,
+} from "@/types/opportunity";
+import { createApplicationSchema } from "@/validators/application";
 import { caseSchema } from "@/validators/case";
 import { mentorSchema } from "@/validators/mentor";
 import { opportunitySchema } from "@/validators/opportunity";
@@ -67,6 +72,93 @@ async function syncOpportunityApplicantCount(
       updated_at: new Date().toISOString(),
     })
     .eq("id", opportunityId);
+}
+
+function getDefaultDeadline() {
+  const target = new Date();
+  target.setDate(target.getDate() + 30);
+  return target.toISOString().slice(0, 10);
+}
+
+function normalizeRequiredItems(values: string[]) {
+  return values.filter(
+    (value): value is ApplicationRequiredItem =>
+      (applicationRequiredItemValues as readonly string[]).includes(value),
+  );
+}
+
+function buildApplicationSubmissionPayload(payload: {
+  intro?: string;
+  portfolioLink?: string;
+  projectExperience?: string;
+  proofMaterial?: string;
+  resumeLink?: string;
+  githubPortfolio?: string;
+  availability?: string;
+}) {
+  return Object.fromEntries(
+    Object.entries({
+      intro: payload.intro ?? "",
+      portfolioLink: payload.portfolioLink ?? "",
+      projectExperience: payload.projectExperience ?? "",
+      proofMaterial: payload.proofMaterial ?? "",
+      resumeLink: payload.resumeLink ?? "",
+      githubPortfolio: payload.githubPortfolio ?? "",
+      availability: payload.availability ?? "",
+    }).filter(([, value]) => Boolean(String(value).trim())),
+  );
+}
+
+function buildApplicationSummary(
+  payload: {
+    intro?: string;
+    portfolioLink?: string;
+    projectExperience?: string;
+    proofMaterial?: string;
+    resumeLink?: string;
+    githubPortfolio?: string;
+    availability?: string;
+  },
+  requiredItems: ApplicationRequiredItem[],
+) {
+  if ((payload.intro ?? "").trim()) {
+    return (payload.intro ?? "").trim();
+  }
+
+  const fieldMap: Record<ApplicationRequiredItem, string> = {
+    intro: payload.intro ?? "",
+    portfolio_link: payload.portfolioLink ?? "",
+    project_experience: payload.projectExperience ?? "",
+    proof_material: payload.proofMaterial ?? "",
+    resume_link: payload.resumeLink ?? "",
+    github_portfolio: payload.githubPortfolio ?? "",
+    availability: payload.availability ?? "",
+  };
+
+  const lines = requiredItems
+    .map((item) => {
+      const value = fieldMap[item]?.trim();
+      if (!value) {
+        return "";
+      }
+      return `${applicationRequiredItemLabels[item]}：${value}`;
+    })
+    .filter(Boolean);
+
+  return lines.join("\n") || "报名者已提交联系方式。";
+}
+
+function getPrimaryProofUrl(payload: {
+  portfolioLink?: string;
+  resumeLink?: string;
+  githubPortfolio?: string;
+}) {
+  return (
+    payload.portfolioLink?.trim() ||
+    payload.githubPortfolio?.trim() ||
+    payload.resumeLink?.trim() ||
+    null
+  );
 }
 
 async function syncLegacyUserRole(userId: string, role: "student" | "mentor") {
@@ -695,43 +787,23 @@ export async function publishOpportunityAction(
   formData: FormData,
 ): Promise<ActionState> {
   const role = String(formData.get("role") ?? "");
-
-  const payload =
-    role === "mentor"
-      ? {
-          role: "mentor" as const,
-          type: String(formData.get("type") ?? ""),
-          title: String(formData.get("title") ?? ""),
-          organization: String(formData.get("organization") ?? ""),
-          summary: String(formData.get("summary") ?? ""),
-          deadline: String(formData.get("deadline") ?? ""),
-          weeklyHours: String(formData.get("weeklyHours") ?? ""),
-          applicationRequirement: String(formData.get("applicationRequirement") ?? ""),
-          contactInfo: String(formData.get("contactInfo") ?? ""),
-          feishuUrl: String(formData.get("feishuUrl") ?? ""),
-          presetTags: formData.getAll("presetTags").map(String),
-          customTags: formData.getAll("customTags").map(String),
-          cover: formData.get("cover"),
-          researchDirection: String(formData.get("researchDirection") ?? ""),
-          targetAudience: String(formData.get("targetAudience") ?? ""),
-          supportMethod: String(formData.get("supportMethod") ?? ""),
-        }
-      : {
-          role: "student" as const,
-          type: String(formData.get("type") ?? ""),
-          title: String(formData.get("title") ?? ""),
-          organization: String(formData.get("organization") ?? ""),
-          summary: String(formData.get("summary") ?? ""),
-          deadline: String(formData.get("deadline") ?? ""),
-          weeklyHours: String(formData.get("weeklyHours") ?? ""),
-          applicationRequirement: String(formData.get("applicationRequirement") ?? ""),
-          contactInfo: String(formData.get("contactInfo") ?? ""),
-          feishuUrl: String(formData.get("feishuUrl") ?? ""),
-          presetTags: formData.getAll("presetTags").map(String),
-          customTags: formData.getAll("customTags").map(String),
-          cover: formData.get("cover"),
-          projectName: String(formData.get("projectName") ?? ""),
-        };
+  const payload = {
+    role: role === "mentor" ? ("mentor" as const) : ("student" as const),
+    type: String(formData.get("type") ?? ""),
+    title: String(formData.get("title") ?? ""),
+    projectName: String(formData.get("projectName") ?? ""),
+    summary: String(formData.get("summary") ?? ""),
+    contactInfo: String(formData.get("contactInfo") ?? ""),
+    organization: String(formData.get("organization") ?? ""),
+    deadline: String(formData.get("deadline") ?? ""),
+    weeklyHours: String(formData.get("weeklyHours") ?? ""),
+    feishuUrl: String(formData.get("feishuUrl") ?? ""),
+    presetTags: formData.getAll("presetTags").map(String),
+    customTags: formData.getAll("customTags").map(String),
+    applicationRequiredItems: formData.getAll("applicationRequiredItems").map(String),
+    applicationRequirementNote: String(formData.get("applicationRequirementNote") ?? ""),
+    cover: formData.get("cover"),
+  };
 
   const parsed = opportunitySchema.safeParse(payload);
   if (!parsed.success) {
@@ -782,52 +854,60 @@ export async function publishOpportunityAction(
 
     const client = await getWriteClient();
     const tags = [...parsed.data.presetTags, ...parsed.data.customTags];
-    const progress =
-      parsed.data.role === "student"
-        ? `项目 / 比赛名称：${parsed.data.projectName}`
-        : `研究 / 指导方向：${parsed.data.researchDirection}\n面向对象：${parsed.data.targetAudience}\n支持方式：${parsed.data.supportMethod}`;
-    const supplementaryItems =
-      parsed.data.role === "student"
-        ? [
-            `项目 / 比赛名称：${parsed.data.projectName}`,
-            `联系说明：${parsed.data.contactInfo}`,
-          ]
-        : [
-            `面向对象：${parsed.data.targetAudience}`,
-            `支持方式：${parsed.data.supportMethod}`,
-            `联系说明：${parsed.data.contactInfo}`,
-          ];
+    const organization = (parsed.data.organization ?? "").trim() || "待补充";
+    const deadline = parsed.data.deadline || getDefaultDeadline();
+    const weeklyHours = (parsed.data.weeklyHours ?? "").trim() || "待沟通";
+    const applicationRequiredItems = normalizeRequiredItems(parsed.data.applicationRequiredItems);
+    const applicationRequirementNote = (parsed.data.applicationRequirementNote ?? "").trim();
+    const progress = `项目 / 比赛名称：${parsed.data.projectName}`;
+    const supplementaryItems = [
+      organization ? `学校 / 团队：${organization}` : "",
+      parsed.data.contactInfo ? `联系方式：${parsed.data.contactInfo}` : "",
+    ].filter(Boolean);
 
     const creatorName = user.email?.split("@")[0] || "邻派用户";
-    const insertResult = await client.from("opportunities").insert({
+    const baseInsert = {
       id: opportunityId,
       type: parsed.data.type,
       title: parsed.data.title,
       summary: parsed.data.summary,
-      organization: parsed.data.organization,
-      school_scope: parsed.data.organization,
-      deadline: parsed.data.deadline,
+      organization,
+      school_scope: organization,
+      deadline,
       creator_id: user.id,
       creator_name: creatorName,
       creator_role: parsed.data.role,
-      creator_org_name: parsed.data.organization,
+      creator_org_name: organization,
       contact_info: parsed.data.contactInfo,
       cover_path: coverPath,
       feishu_url: parsed.data.feishuUrl || null,
       status: "开放申请",
-      weekly_hours: parsed.data.weeklyHours,
+      weekly_hours: weeklyHours,
       progress,
-      trial_task: parsed.data.applicationRequirement || null,
+      trial_task: applicationRequirementNote || null,
       skill_tags: tags,
       preset_tags: parsed.data.presetTags,
       custom_tags: parsed.data.customTags,
       deliverables: supplementaryItems,
-      project_name: parsed.data.role === "student" ? parsed.data.projectName : null,
-      research_direction: parsed.data.role === "mentor" ? parsed.data.researchDirection : null,
-      target_audience: parsed.data.role === "mentor" ? parsed.data.targetAudience : null,
-      support_method: parsed.data.role === "mentor" ? parsed.data.supportMethod : null,
+      project_name: parsed.data.projectName,
+      research_direction: null,
+      target_audience: null,
+      support_method: null,
       applicant_count: 0,
+    };
+
+    let insertResult = await client.from("opportunities").insert({
+      ...baseInsert,
+      application_required_items: applicationRequiredItems,
+      application_requirement_note: applicationRequirementNote || null,
     });
+
+    if (
+      insertResult.error &&
+      /application_required_items|application_requirement_note/i.test(insertResult.error.message)
+    ) {
+      insertResult = await client.from("opportunities").insert(baseInsert);
+    }
 
     if (insertResult.error) {
       return { status: "error", message: "招募发布失败，请稍后再试。" };
@@ -853,19 +933,15 @@ export async function applyOpportunityAction(
 ): Promise<ActionState> {
   const payload = {
     opportunityId: String(formData.get("opportunityId") ?? ""),
-    note: String(formData.get("note") ?? ""),
     contact: String(formData.get("contact") ?? ""),
-    proofUrl: String(formData.get("proofUrl") ?? ""),
+    intro: String(formData.get("intro") ?? ""),
+    portfolioLink: String(formData.get("portfolioLink") ?? ""),
+    projectExperience: String(formData.get("projectExperience") ?? ""),
+    proofMaterial: String(formData.get("proofMaterial") ?? ""),
+    resumeLink: String(formData.get("resumeLink") ?? ""),
+    githubPortfolio: String(formData.get("githubPortfolio") ?? ""),
+    availability: String(formData.get("availability") ?? ""),
   };
-
-  const parsed = applicationSchema.safeParse(payload);
-  if (!parsed.success) {
-    return {
-      status: "error",
-      message: "报名信息还有几项没填好，请按提示补充。",
-      fieldErrors: toFieldErrors(parsed.error),
-    };
-  }
 
   if (!hasSupabaseEnv()) {
     return offlineState("报名信息校验已经通过，配置 Supabase 后就可以写入真实记录。");
@@ -884,43 +960,59 @@ export async function applyOpportunityAction(
     const client = await getWriteClient();
     const { data: opportunity } = await client
       .from("opportunities")
-      .select("title")
-      .eq("id", parsed.data.opportunityId)
+      .select("title, application_required_items, application_requirement_note")
+      .eq("id", payload.opportunityId)
       .maybeSingle();
 
-    const { error } = await client.from("applications").upsert({
+    const requiredItems = normalizeRequiredItems(
+      Array.isArray(opportunity?.application_required_items)
+        ? opportunity.application_required_items.map(String)
+        : [],
+    );
+
+    const parsed = createApplicationSchema({ requiredItems }).safeParse(payload);
+    if (!parsed.success) {
+      return {
+        status: "error",
+        message: "报名信息还有几项没填好，请按提示补充。",
+        fieldErrors: toFieldErrors(parsed.error),
+      };
+    }
+
+    const submissionPayload = buildApplicationSubmissionPayload(parsed.data);
+    const note = buildApplicationSummary(parsed.data, requiredItems);
+    const proofUrl = getPrimaryProofUrl(parsed.data);
+
+    let result = await client.from("applications").upsert({
       opportunity_id: parsed.data.opportunityId,
       applicant_id: user.id,
-      note: parsed.data.note,
+      note,
       contact: parsed.data.contact,
-      proof_url: parsed.data.proofUrl || null,
+      proof_url: proofUrl,
+      submission_payload: submissionPayload,
       status: "待查看",
       opportunity_title: opportunity?.title ?? "未命名招募",
     });
 
-    if (error) {
-      if (/column .*contact.* does not exist|column .*proof_url.* does not exist/i.test(error.message)) {
-        const fallback = await client.from("applications").upsert({
+    if (result.error) {
+      if (
+        /submission_payload|column .*contact.* does not exist|column .*proof_url.* does not exist/i.test(
+          result.error.message,
+        )
+      ) {
+        result = await client.from("applications").upsert({
           opportunity_id: parsed.data.opportunityId,
           applicant_id: user.id,
-          note: parsed.data.note,
-          trial_task_url: parsed.data.proofUrl || null,
+          note,
+          trial_task_url: proofUrl,
           status: "待查看",
           opportunity_title: opportunity?.title ?? "未命名招募",
         });
-
-        if (!fallback.error) {
-          await syncOpportunityApplicantCount(client, parsed.data.opportunityId);
-          revalidatePath("/dashboard");
-          revalidatePath("/opportunities");
-          revalidatePath(`/opportunities/${parsed.data.opportunityId}`);
-          revalidatePath(`/dashboard/opportunities/${parsed.data.opportunityId}`);
-          revalidateTag("opportunities", "max");
-          return { status: "success", message: "报名已提交，发起方看到后会尽快联系你。" };
-        }
       }
 
-      return { status: "error", message: "报名提交失败，请稍后再试。" };
+      if (result.error) {
+        return { status: "error", message: "报名提交失败，请稍后再试。" };
+      }
     }
 
     await syncOpportunityApplicantCount(client, parsed.data.opportunityId);

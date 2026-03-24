@@ -23,18 +23,14 @@ export default async function PublishPage({ searchParams }: PublishPageProps) {
   return (
     <FormShell
       eyebrow="发招募"
-      title={flow.role === "student" ? "清楚发出你想要找的人" : "把你愿意开放的合作机会发出来"}
-      description={
-        flow.role === "student"
-          ? "适用于比赛组队、项目招人、找队友和短期合作。"
-          : "适用于带队招募、课题合作、指导支持和实验室开放机会。"
-      }
-      asideTitle="填写时可以这样想"
-      asideDescription="先把你想找谁、一起做什么、怎么联系和时间安排写清楚，不用一开始就写得很复杂。"
+      title="先快速发出一条招募"
+      description="先把你想找的人和要做的事写清楚，其他细节后面再补。"
+      asideTitle="填的时候可以这样想"
+      asideDescription="不用一上来就把所有细节写满，先把最关键的信息发出去，后面再慢慢补充。"
       tips={[
-        "标题先让人一眼看懂你在招什么。",
-        "把详细需求说明写清楚，比拆很多小栏更容易理解。",
-        "标签先选最贴近的几个，后面还可以再补。",
+        "先把你想找的人和要做的事写清楚",
+        "报名时要收哪些材料，也可以直接勾选",
+        "先发出去，细节后面可以再补",
       ]}
     >
       <div className="space-y-5">
@@ -43,7 +39,7 @@ export default async function PublishPage({ searchParams }: PublishPageProps) {
             <div className="space-y-1">
               <p className="text-sm font-semibold text-[var(--primary)]">我的报名和发布管理</p>
               <p className="text-sm leading-6 text-[var(--muted)]">
-                想修改已发布的招募、查看谁报名了，或者继续处理自己的报名记录，都从这里进入。
+                想修改已发布招募、看谁报名了，或者继续处理自己的报名记录，都从这里进入。
               </p>
             </div>
             <Link href="/dashboard" className="ui-button-primary px-5 py-3 text-sm font-semibold">
