@@ -96,16 +96,16 @@ export default async function HomePage() {
       </section>
 
       <section className="space-y-4">
-        <div className="flex items-end justify-between gap-4">
-          <PageHeading eyebrow="找队伍" title="统一查看所有正在开放的招募" />
-          <Link href="/opportunities" className="ui-link hidden text-sm font-semibold sm:block">
-            查看全部招募
-          </Link>
-        </div>
+        <PageHeading eyebrow="找队伍" title="统一查看所有正在开放的招募" />
         <div className="grid gap-4 sm:gap-5 lg:grid-cols-3">
           {opportunities.map((item) => (
             <OpportunityCard key={item.id} item={item} />
           ))}
+        </div>
+        <div className="flex justify-center">
+          <Link href="/opportunities?page=1" className="ui-button-secondary px-6 py-3 text-sm font-semibold">
+            查看更多招募
+          </Link>
         </div>
       </section>
 

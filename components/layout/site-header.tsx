@@ -48,7 +48,7 @@ export async function SiteHeader() {
                 <form action={logoutAction}>
                   <button
                     type="submit"
-                    className="rounded-full bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_24px_rgba(255,159,74,0.2)] active:scale-[0.97]"
+              className="rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_24px_rgba(255,159,74,0.2)] active:scale-[0.97]"
                   >
                     退出登录
                   </button>

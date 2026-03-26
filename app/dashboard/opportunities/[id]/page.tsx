@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
-import { updateOwnApplicationStatusAction } from "@/app/actions";
+import { deleteOwnOpportunityAction, updateOwnApplicationStatusAction } from "@/app/actions";
 import { FormFeedback } from "@/components/ui/form-feedback";
+import { InlineDangerConfirmAction } from "@/components/ui/inline-danger-confirm-action";
 import { getCurrentUser } from "@/lib/auth";
 import { getManagedOpportunityApplications } from "@/lib/data";
 import { formatDate } from "@/lib/utils";
@@ -78,13 +79,13 @@ export default async function ManagedOpportunityDetailPage({
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-2">
             <Link href="/dashboard" className="text-sm font-semibold text-primary">
-              返回我的报名和发布管理
+              返回我的发布管理
             </Link>
             <h1 className="font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
               {snapshot.opportunity.title}
             </h1>
             <p className="text-sm leading-7 text-muted">
-              {snapshot.opportunity.type} · {snapshot.opportunity.status} · 当前共有 {snapshot.applications.length} 人报名
+              {snapshot.opportunity.type} · {snapshot.opportunity.status} · 当前共收到 {snapshot.applications.length} 份报名
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -94,7 +95,10 @@ export default async function ManagedOpportunityDetailPage({
             >
               编辑这条招募
             </Link>
-            <Link href={`/opportunities/${snapshot.opportunity.id}`} className="ui-button-secondary px-4 py-2 text-sm font-semibold">
+            <Link
+              href={`/opportunities/${snapshot.opportunity.id}`}
+              className="ui-button-secondary px-4 py-2 text-sm font-semibold"
+            >
               查看公开详情
             </Link>
           </div>
@@ -103,7 +107,9 @@ export default async function ManagedOpportunityDetailPage({
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
           <div className="rounded-2xl bg-surface-muted px-4 py-4">
             <p className="text-sm text-muted">详细需求说明</p>
-            <p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-foreground">{snapshot.opportunity.summary}</p>
+            <p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-foreground">
+              {snapshot.opportunity.summary}
+            </p>
           </div>
           <div className="rounded-2xl bg-surface-muted px-4 py-4">
             <p className="text-sm text-muted">联系与补充信息</p>
@@ -111,21 +117,32 @@ export default async function ManagedOpportunityDetailPage({
               {snapshot.opportunity.supplementaryItems.length ? (
                 snapshot.opportunity.supplementaryItems.map((item) => <li key={item}>{item}</li>)
               ) : (
-                <li>暂无补充其他说明</li>
+                <li>暂无补充说明</li>
               )}
             </ul>
           </div>
+        </div>
+
+        <div className="mt-6">
+          <InlineDangerConfirmAction
+            action={deleteOwnOpportunityAction}
+            hiddenFields={{ opportunityId: snapshot.opportunity.id }}
+            triggerLabel="删除这条招募"
+            confirmTitle="确认删除这条招募吗？"
+            confirmDescription="删除后，这条招募和关联的报名记录都会一起删除，且无法恢复。"
+            confirmLabel="确认删除招募"
+          />
         </div>
       </div>
 
       {feedback ? <FormFeedback state={feedback} /> : null}
 
       <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-foreground">报名详情</h2>
-            <p className="mt-1 text-sm text-muted">在这里查看是谁报名了、对方提交了什么信息，并手动更新处理状态。</p>
-          </div>
+        <div>
+          <h2 className="text-2xl font-bold text-foreground">报名详情</h2>
+          <p className="mt-1 text-sm text-muted">
+            在这里查看是谁报名了、对方提交了什么信息，并手动更新处理状态。
+          </p>
         </div>
 
         {snapshot.applications.length ? (
@@ -179,7 +196,7 @@ export default async function ManagedOpportunityDetailPage({
           <div className="surface-panel rounded-[1.6rem] p-6 text-center">
             <h3 className="text-xl font-bold text-foreground">还没有人报名这条招募</h3>
             <p className="mt-3 text-sm leading-7 text-muted">
-              你可以先继续完善招募说明，或者回到公开详情页看看展示是否清楚。
+              你可以继续完善招募说明，或者回到公开详情页看看展示是否足够清楚。
             </p>
           </div>
         )}

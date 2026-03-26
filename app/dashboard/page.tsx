@@ -1,22 +1,42 @@
 import Link from "next/link";
 
+import { FormFeedback } from "@/components/ui/form-feedback";
 import { FormShell } from "@/components/ui/form-shell";
-import { getCurrentAccountRole, getCurrentUser } from "@/lib/auth";
 import { getCurrentAdminUser } from "@/lib/admin";
+import { getCurrentAccountRole, getCurrentUser } from "@/lib/auth";
 import { getDashboardSnapshot } from "@/lib/data";
 import { formatDate } from "@/lib/utils";
 
-export default async function DashboardPage() {
+type DashboardPageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+function getMessageState(params?: Record<string, string | string[] | undefined>) {
+  const error = typeof params?.error === "string" ? params.error : "";
+  const message = typeof params?.message === "string" ? params.message : "";
+
+  if (error) {
+    return { status: "error" as const, message: error };
+  }
+
+  if (message) {
+    return { status: "success" as const, message };
+  }
+
+  return null;
+}
+
+export default async function DashboardPage({ searchParams }: DashboardPageProps) {
   const user = await getCurrentUser();
 
   if (!user) {
     return (
       <div className="surface-card rounded-[2rem] px-6 py-8 text-center sm:px-8">
         <h1 className="font-display text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
-          登录后才能管理招募、报名和个人资料
+          登录后才能管理你的报名和招募
         </h1>
         <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-[var(--muted)] sm:text-base">
-          你可以先浏览平台内容，登录后再进入这里查看自己的报名记录、已发布招募和资料入口。
+          你可以先浏览平台内容，登录后再回到这里查看自己的报名记录、已发布招募和资料入口。
         </p>
         <div className="mt-8">
           <Link href="/login?next=/dashboard" className="ui-button-primary px-5 py-3 font-semibold">
@@ -30,6 +50,7 @@ export default async function DashboardPage() {
   const role = await getCurrentAccountRole(user);
   const adminUser = await getCurrentAdminUser();
   const snapshot = await getDashboardSnapshot(user.id, role);
+  const feedback = getMessageState((await searchParams) ?? {});
   const displayName =
     snapshot.profile && "name" in snapshot.profile ? snapshot.profile.name : user.email || "邻派用户";
 
@@ -37,16 +58,18 @@ export default async function DashboardPage() {
     <FormShell
       eyebrow="我的发布管理"
       title={`欢迎回来，${displayName}`}
-      description="这里统一管理你的资料、报名记录和已发布招募。前台入口按动作组织，但后台信息会根据身份自动区分。"
-      asideTitle="你可以在这里做什么"
-      asideDescription="无论你是学生还是导师，都可以从这里继续处理自己的记录。"
+      description="这里统一管理你的资料、报名记录和已发布招募。点击对应卡片后，可以继续查看、修改或处理详情。"
+      asideTitle="这里现在能做什么"
+      asideDescription="报名和招募都已经变成真正可操作的入口，不再只是摘要展示。"
       tips={[
-        role === "mentor" ? "建议先把研究方向和支持方式补完整。" : "建议先把方向、经历和联系方式补完整。",
-        "点击我的报名，可以查看并修改自己已经提交的报名信息。",
-        "点击我的招募，可以查看谁报名了、处理报名状态，或者继续编辑招募。",
+        role === "mentor" ? "建议先把导师资料补完整，方便招募方和报名者判断是否适合合作。" : "建议先把个人资料和联系方式补完整，方便发起方尽快联系你。",
+        "我的报名里可以查看和修改自己已经提交的内容，取消报名也放到了详情页里。",
+        "我的招募里可以查看报名详情、编辑招募内容，删除招募前也会有二次确认。",
       ]}
     >
       <div className="space-y-8">
+        {feedback ? <FormFeedback state={feedback} /> : null}
+
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-2xl font-bold text-[var(--foreground)]">快捷入口</h2>
@@ -90,7 +113,7 @@ export default async function DashboardPage() {
                   <Link
                     key={item.id}
                     href={`/dashboard/applications/${item.id}`}
-                    className="block rounded-2xl border border-line bg-surface-muted px-4 py-4 transition hover:border-[rgba(36,107,250,0.18)] hover:bg-white"
+                    className="block rounded-2xl border border-line bg-surface-muted px-4 py-4 transition hover:border-[rgba(51,102,255,0.28)] hover:shadow-[0_10px_30px_rgba(37,99,235,0.08)]"
                   >
                     <p className="font-semibold text-[var(--foreground)]">{item.opportunityTitle}</p>
                     <p className="mt-2 text-sm text-[var(--muted)]">提交于 {formatDate(item.submittedAt)}</p>
@@ -115,7 +138,7 @@ export default async function DashboardPage() {
                   <Link
                     key={item.id}
                     href={`/dashboard/opportunities/${item.id}`}
-                    className="block rounded-2xl border border-line bg-surface-muted px-4 py-4 transition hover:border-[rgba(36,107,250,0.18)] hover:bg-white"
+                    className="block rounded-2xl border border-line bg-surface-muted px-4 py-4 transition hover:border-[rgba(51,102,255,0.28)] hover:shadow-[0_10px_30px_rgba(37,99,235,0.08)]"
                   >
                     <p className="font-semibold text-[var(--foreground)]">{item.title}</p>
                     <p className="mt-2 text-sm text-[var(--muted)]">

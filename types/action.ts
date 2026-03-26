@@ -4,6 +4,10 @@ export type ActionState = {
   fieldErrors?: Record<string, string[]>;
 };
 
+export type ActionResult = ActionState & {
+  redirectTo?: string;
+};
+
 export const initialActionState: ActionState = {
   status: "idle",
   message: "",

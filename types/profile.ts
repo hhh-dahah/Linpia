@@ -11,6 +11,7 @@ export type TalentCard = {
   customSkills?: string[];
   interestedDirections: string[];
   timeCommitment: string;
+  updatedAt?: string;
   avatarPath?: string | null;
   portfolioCoverPath?: string | null;
   portfolioExternalUrl?: string | null;

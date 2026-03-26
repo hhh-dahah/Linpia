@@ -15,7 +15,7 @@ import { hasServiceRoleEnv, hasSupabaseEnv } from "@/lib/env";
 import { uploadImage } from "@/lib/storage";
 import { createAdminSupabaseClient } from "@/supabase/admin";
 import { createServerSupabaseClient } from "@/supabase/server";
-import type { ActionState } from "@/types/action";
+import type { ActionResult, ActionState } from "@/types/action";
 import type { AdminApplicationStatus, AdminRole, VisibilityStatus } from "@/types/admin";
 import { applicationStatuses, type ApplicationStatus } from "@/types/application";
 import {
@@ -1016,6 +1016,7 @@ export async function applyOpportunityAction(
     }
 
     await syncOpportunityApplicantCount(client, parsed.data.opportunityId);
+    revalidatePath("/");
     revalidatePath("/dashboard");
     revalidatePath("/opportunities");
     revalidatePath(`/opportunities/${parsed.data.opportunityId}`);
@@ -1155,6 +1156,70 @@ export async function updateOwnApplicationAction(
     return {
       status: "error",
       message: error instanceof Error ? error.message : "报名修改失败，请稍后再试。",
+    };
+  }
+}
+
+export async function deleteOwnApplicationAction(formData: FormData): Promise<ActionResult> {
+  const applicationId = String(formData.get("applicationId") ?? "");
+  const fallbackOpportunityId = String(formData.get("opportunityId") ?? "");
+
+  try {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      throw new Error("请先登录后再处理报名。");
+    }
+
+    if (!applicationId) {
+      throw new Error("没有找到这条报名记录。");
+    }
+
+    const client = await getWriteClient();
+    const { data: existing, error: existingError } = await client
+      .from("applications")
+      .select("id, opportunity_id, applicant_id")
+      .eq("id", applicationId)
+      .eq("applicant_id", currentUser.id)
+      .maybeSingle();
+
+    if (existingError || !existing) {
+      throw new Error("没有找到这条报名记录。");
+    }
+
+    const opportunityId = String(existing.opportunity_id ?? fallbackOpportunityId);
+    const { error } = await client
+      .from("applications")
+      .delete()
+      .eq("id", applicationId)
+      .eq("applicant_id", currentUser.id);
+
+    if (error) {
+      throw error;
+    }
+
+    if (opportunityId) {
+      await syncOpportunityApplicantCount(client, opportunityId);
+    }
+
+    revalidatePath("/");
+    revalidatePath("/dashboard");
+    revalidatePath("/opportunities");
+    revalidatePath(`/dashboard/applications/${applicationId}`);
+    if (opportunityId) {
+      revalidatePath(`/dashboard/opportunities/${opportunityId}`);
+      revalidatePath(`/dashboard/opportunities/${opportunityId}/edit`);
+      revalidatePath(`/opportunities/${opportunityId}`);
+    }
+    revalidateTag("opportunities", "max");
+    return {
+      status: "success",
+      message: "报名已取消。",
+      redirectTo: "/dashboard?message=" + encodeURIComponent("报名已取消。"),
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "取消报名失败",
     };
   }
 }
@@ -1312,6 +1377,65 @@ export async function updateOwnOpportunityAction(
     return {
       status: "error",
       message: error instanceof Error ? error.message : "招募修改失败，请稍后再试。",
+    };
+  }
+}
+
+export async function deleteOwnOpportunityAction(formData: FormData): Promise<ActionResult> {
+  const opportunityId = String(formData.get("opportunityId") ?? "");
+
+  try {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      throw new Error("请先登录后再处理招募。");
+    }
+
+    if (!opportunityId) {
+      throw new Error("没有找到这条招募记录。");
+    }
+
+    const client = await getWriteClient();
+    const { data: existing, error: existingError } = await client
+      .from("opportunities")
+      .select("id, creator_id")
+      .eq("id", opportunityId)
+      .maybeSingle();
+
+    if (existingError || !existing) {
+      throw new Error("没有找到这条招募。");
+    }
+
+    if (String(existing.creator_id ?? "") !== currentUser.id) {
+      throw new Error("你没有权限删除这条招募。");
+    }
+
+    const { error } = await client
+      .from("opportunities")
+      .delete()
+      .eq("id", opportunityId)
+      .eq("creator_id", currentUser.id);
+
+    if (error) {
+      throw error;
+    }
+
+    revalidatePath("/");
+    revalidatePath("/dashboard");
+    revalidatePath("/publish");
+    revalidatePath("/opportunities");
+    revalidatePath(`/dashboard/opportunities/${opportunityId}`);
+    revalidatePath(`/dashboard/opportunities/${opportunityId}/edit`);
+    revalidatePath(`/opportunities/${opportunityId}`);
+    revalidateTag("opportunities", "max");
+    return {
+      status: "success",
+      message: "招募已删除。",
+      redirectTo: "/dashboard?message=" + encodeURIComponent("招募已删除。"),
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "删除招募失败",
     };
   }
 }

@@ -1,19 +1,45 @@
+import Link from "next/link";
+
 import { OpportunityCard } from "@/components/cards/opportunity-card";
 import { PageHeading } from "@/components/ui/page-heading";
 import { opportunityTypes, recruitmentTagPresets } from "@/constants";
-import { listOpportunities } from "@/lib/data";
+import { listPaginatedOpportunities } from "@/lib/data";
+
+const PAGE_SIZE = 5;
 
 type SearchProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
+function readSingleParam(value: string | string[] | undefined) {
+  return typeof value === "string" ? value : "";
+}
+
 export default async function OpportunitiesPage({ searchParams }: SearchProps) {
   const params = (await searchParams) ?? {};
-  const query = typeof params.query === "string" ? params.query : "";
-  const type = typeof params.type === "string" ? params.type : "";
-  const school = typeof params.school === "string" ? params.school : "";
-  const skill = typeof params.skill === "string" ? params.skill : "";
-  const opportunities = await listOpportunities({ query, type, school, skill });
+  const query = readSingleParam(params.query);
+  const type = readSingleParam(params.type);
+  const school = readSingleParam(params.school);
+  const skill = readSingleParam(params.skill);
+  const rawPage = Number.parseInt(readSingleParam(params.page), 10);
+  const page = Number.isFinite(rawPage) && rawPage > 0 ? rawPage : 1;
+
+  const { items: opportunities, hasMore } = await listPaginatedOpportunities(
+    { query, type, school, skill },
+    { page, pageSize: PAGE_SIZE },
+  );
+
+  const buildLoadMoreHref = () => {
+    const nextParams = new URLSearchParams();
+
+    if (query) nextParams.set("query", query);
+    if (type) nextParams.set("type", type);
+    if (school) nextParams.set("school", school);
+    if (skill) nextParams.set("skill", skill);
+    nextParams.set("page", String(page + 1));
+
+    return `/opportunities?${nextParams.toString()}`;
+  };
 
   return (
     <div className="space-y-8">
@@ -28,7 +54,7 @@ export default async function OpportunitiesPage({ searchParams }: SearchProps) {
           <input
             name="query"
             defaultValue={query}
-            placeholder="搜索标题、发布方、组织或摘要"
+            placeholder="搜索标题、发布方、项目名称或摘要"
             className="field-base lg:col-span-2"
           />
           <select name="type" defaultValue={type} className="field-base">
@@ -63,10 +89,20 @@ export default async function OpportunitiesPage({ searchParams }: SearchProps) {
       </section>
 
       {opportunities.length ? (
-        <div className="grid gap-5 lg:grid-cols-2">
-          {opportunities.map((item) => (
-            <OpportunityCard key={item.id} item={item} />
-          ))}
+        <div className="space-y-6">
+          <div className="grid gap-5 lg:grid-cols-2">
+            {opportunities.map((item) => (
+              <OpportunityCard key={item.id} item={item} />
+            ))}
+          </div>
+
+          {hasMore ? (
+            <div className="flex justify-center">
+              <Link href={buildLoadMoreHref()} className="ui-button-secondary px-6 py-3 text-sm font-semibold">
+                查看更多招募
+              </Link>
+            </div>
+          ) : null}
         </div>
       ) : (
         <div className="surface-panel rounded-[2rem] p-8 text-center">

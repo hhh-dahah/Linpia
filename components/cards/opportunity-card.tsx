@@ -1,6 +1,5 @@
 import Link from "next/link";
 
-import { formatDate } from "@/lib/utils";
 import type { OpportunityCard as OpportunityCardType } from "@/types/opportunity";
 
 export function OpportunityCard({ item }: { item: OpportunityCardType }) {
@@ -24,28 +23,9 @@ export function OpportunityCard({ item }: { item: OpportunityCardType }) {
       <h3 className="mt-4 text-xl font-bold tracking-tight text-foreground">{item.title}</h3>
       <p className="mt-3 text-sm leading-7 text-muted">{item.summary}</p>
 
-      <div className="mt-5 flex flex-wrap gap-2">
-        {item.tags.length ? (
-          item.tags.map((tag) => (
-            <span
-              key={tag}
-              className="rounded-full bg-[rgba(24,35,56,0.05)] px-3 py-1 text-xs font-medium text-foreground"
-            >
-              {tag}
-            </span>
-          ))
-        ) : (
-          <span className="rounded-full bg-[rgba(17,40,79,0.05)] px-3 py-1 text-xs font-medium text-muted">
-            暂未添加标签
-          </span>
-        )}
-      </div>
-
-      <div className="mt-5 grid gap-3 text-sm text-muted sm:grid-cols-2">
+      <div className="mt-5 grid gap-3 text-sm text-muted">
         <div>发布方：{item.creatorName}</div>
-        <div>组织：{item.creatorOrganization || item.organization}</div>
-        <div>时间安排：{item.weeklyHours}</div>
-        <div>截止时间：{formatDate(item.deadline)}</div>
+        <div>项目 / 比赛名称：{item.projectName || "待补充"}</div>
       </div>
 
       <div className="mt-6 flex items-center justify-between gap-4">

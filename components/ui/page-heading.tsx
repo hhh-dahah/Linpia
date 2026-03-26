@@ -12,7 +12,7 @@ export function PageHeading({ eyebrow, title, description, className }: PageHead
     <div className={cn("max-w-3xl", className)}>
       {eyebrow ? (
         <span className="chip mb-4">
-          <span className="h-2 w-2 rounded-full bg-[var(--accent)]" />
+          <span className="h-2 w-2 rounded-full bg-accent" />
           {eyebrow}
         </span>
       ) : null}

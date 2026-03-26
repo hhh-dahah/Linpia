@@ -1,4 +1,4 @@
-import {
+﻿import {
   mockCases,
   mockDashboardApplications,
   mockMentors,
@@ -75,6 +75,20 @@ const demoCaseTitles = new Set([
   "跨学科公益项目 Demo",
 ]);
 
+const studentPlaceholderValues = new Set([
+  "",
+  "待补充",
+  "这个同学还在补充个人介绍。",
+  "技能待补充",
+  "暂未填写",
+]);
+
+const mentorPlaceholderValues = new Set([
+  "",
+  "待补充",
+  "暂未填写",
+]);
+
 function matchKeyword(parts: Array<string | undefined>, keyword?: string) {
   if (!keyword) {
     return true;
@@ -112,6 +126,164 @@ function normalizeSubmissionPayload(value: unknown): ApplicationSubmissionPayloa
       availability: String(record.availability ?? "").trim(),
     }).filter(([, fieldValue]) => Boolean(fieldValue)),
   ) as ApplicationSubmissionPayload;
+}
+
+function hasSubstantiveValue(value?: string | null, placeholders: Set<string> = studentPlaceholderValues) {
+  const normalized = String(value ?? "").trim();
+  return Boolean(normalized) && !placeholders.has(normalized);
+}
+
+function compareIsoDateStrings(a?: string, b?: string) {
+  const left = Date.parse(a ?? "");
+  const right = Date.parse(b ?? "");
+
+  if (Number.isNaN(left) && Number.isNaN(right)) {
+    return 0;
+  }
+  if (Number.isNaN(left)) {
+    return 1;
+  }
+  if (Number.isNaN(right)) {
+    return -1;
+  }
+
+  return right - left;
+}
+
+function scoreStudentCompleteness(item: TalentDetail) {
+  let score = 0;
+
+  if (hasSubstantiveValue(item.bio)) {
+    score += 8;
+  }
+
+  const skillCount = [...item.skills, ...(item.customSkills ?? [])].filter(Boolean).length;
+  if (skillCount > 0) {
+    score += 6 + Math.min(skillCount, 4);
+  }
+
+  const interestedDirectionCount = item.interestedDirections.filter((direction) =>
+    hasSubstantiveValue(direction),
+  ).length;
+  if (interestedDirectionCount > 0) {
+    score += 5 + Math.min(interestedDirectionCount, 2);
+  }
+
+  if (hasSubstantiveValue(item.contact)) {
+    score += 4;
+  }
+
+  if (hasSubstantiveValue(item.portfolioExternalUrl)) {
+    score += 3;
+  }
+
+  if (hasSubstantiveValue(item.experience) && item.experience.trim() !== item.bio.trim()) {
+    score += 3;
+  }
+
+  if (hasSubstantiveValue(item.school)) {
+    score += 1;
+  }
+  if (hasSubstantiveValue(item.major)) {
+    score += 1;
+  }
+  if (hasSubstantiveValue(item.grade)) {
+    score += 1;
+  }
+
+  return score;
+}
+
+function scoreMentorCompleteness(item: MentorCard) {
+  let score = 0;
+
+  if (hasSubstantiveValue(item.direction, mentorPlaceholderValues)) {
+    score += 6;
+  }
+
+  if (item.supportScope.filter((value) => hasSubstantiveValue(value, mentorPlaceholderValues)).length > 0) {
+    score += 5;
+  }
+
+  if (hasSubstantiveValue(item.organization, mentorPlaceholderValues)) {
+    score += 4;
+  } else {
+    if (hasSubstantiveValue(item.school, mentorPlaceholderValues)) score += 1;
+    if (hasSubstantiveValue(item.college, mentorPlaceholderValues)) score += 1;
+    if (hasSubstantiveValue(item.lab, mentorPlaceholderValues)) score += 1;
+  }
+
+  if (hasSubstantiveValue(item.contactMode, mentorPlaceholderValues)) {
+    score += 3;
+  }
+
+  if (hasSubstantiveValue(item.supportMethod, mentorPlaceholderValues)) {
+    score += 2;
+  }
+
+  if (hasSubstantiveValue(item.applicationNotes, mentorPlaceholderValues)) {
+    score += 2;
+  }
+
+  if (item.directionTags.filter((value) => hasSubstantiveValue(value, mentorPlaceholderValues)).length > 0) {
+    score += 2;
+  }
+
+  return score;
+}
+
+function sortStudentsByCompleteness(items: TalentDetail[]) {
+  return items
+    .map((item, index) => ({
+      item,
+      index,
+      completenessScore: scoreStudentCompleteness(item),
+    }))
+    .sort((left, right) => {
+      if (right.completenessScore !== left.completenessScore) {
+        return right.completenessScore - left.completenessScore;
+      }
+
+      const dateOrder = compareIsoDateStrings(left.item.updatedAt, right.item.updatedAt);
+      if (dateOrder !== 0) {
+        return dateOrder;
+      }
+
+      const nameOrder = left.item.name.localeCompare(right.item.name, "zh-CN");
+      if (nameOrder !== 0) {
+        return nameOrder;
+      }
+
+      return left.index - right.index;
+    })
+    .map(({ item }) => item);
+}
+
+function sortMentorsByCompleteness(items: MentorCard[]) {
+  return items
+    .map((item, index) => ({
+      item,
+      index,
+      completenessScore: scoreMentorCompleteness(item),
+    }))
+    .sort((left, right) => {
+      if (right.completenessScore !== left.completenessScore) {
+        return right.completenessScore - left.completenessScore;
+      }
+
+      const dateOrder = compareIsoDateStrings(left.item.updatedAt, right.item.updatedAt);
+      if (dateOrder !== 0) {
+        return dateOrder;
+      }
+
+      const nameOrder = left.item.name.localeCompare(right.item.name, "zh-CN");
+      if (nameOrder !== 0) {
+        return nameOrder;
+      }
+
+      return left.index - right.index;
+    })
+    .map(({ item }) => item);
 }
 
 function splitTalentSkills(value: unknown, customValue?: unknown) {
@@ -214,6 +386,7 @@ function normalizeLegacyTalent(record: ProfileRecord): TalentDetail {
     customSkills,
     interestedDirections,
     timeCommitment: String(record.time_commitment ?? ""),
+    updatedAt: String(record.updated_at ?? ""),
     avatarPath: (record.avatar_path as string | null) ?? null,
     portfolioCoverPath: (record.portfolio_cover_path as string | null) ?? null,
     portfolioExternalUrl: (record.portfolio_external_url as string | null) ?? null,
@@ -237,7 +410,7 @@ function normalizeStudentProfile(
   );
   const interestedDirections = studentProfile?.target_direction
     ? String(studentProfile.target_direction)
-        .split(/[、,，]/)
+        .split(/[、，,/]/)
         .map((item) => item.trim())
         .filter(Boolean)
     : Array.isArray(profile.interested_directions)
@@ -256,6 +429,7 @@ function normalizeStudentProfile(
     customSkills,
     interestedDirections,
     timeCommitment: String(profile.time_commitment ?? ""),
+    updatedAt: String(profile.updated_at ?? ""),
     avatarPath: (profile.avatar_path as string | null) ?? null,
     portfolioCoverPath: (profile.portfolio_cover_path as string | null) ?? null,
     portfolioExternalUrl: (studentProfile?.portfolio as string | null) ?? (profile.portfolio_external_url as string | null) ?? null,
@@ -292,6 +466,7 @@ function normalizeLegacyMentor(record: LegacyMentorRecord): MentorCard {
     direction: String(record.direction ?? ""),
     directionTags: Array.isArray(record.direction_tags) ? (record.direction_tags as string[]) : [],
     supportScope: Array.isArray(record.support_scope) ? (record.support_scope as string[]) : [],
+    updatedAt: String(record.updated_at ?? ""),
     avatarPath: (record.avatar_path as string | null) ?? null,
     contactMode: bundle.contact,
     isOpen: Boolean(record.is_open),
@@ -323,6 +498,7 @@ function normalizeMentorProfile(
     supportScope: Array.isArray(mentorProfile?.support_types)
       ? (mentorProfile?.support_types as string[])
       : (legacy?.supportScope ?? []),
+    updatedAt: String(profile.updated_at ?? legacy?.updatedAt ?? ""),
     avatarPath: (profile.avatar_path as string | null) ?? legacy?.avatarPath ?? null,
     contactMode: String(mentorProfile?.contact ?? legacy?.contactMode ?? ""),
     isOpen: Boolean(mentorProfile?.open_status ?? legacy?.isOpen ?? true),
@@ -355,6 +531,7 @@ function normalizeDirectoryTalent(record: Record<string, unknown>): TalentDetail
       ? (record.interested_directions as string[])
       : [],
     timeCommitment: String(record.time_commitment ?? ""),
+    updatedAt: String(record.updated_at ?? ""),
     avatarPath: (record.avatar_path as string | null) ?? null,
     portfolioCoverPath: null,
     portfolioExternalUrl: (record.portfolio_url as string | null) ?? null,
@@ -379,6 +556,7 @@ function normalizeDirectoryMentor(record: Record<string, unknown>): MentorCard {
     direction: String(record.research_direction ?? record.bio ?? ""),
     directionTags: Array.isArray(record.skills) ? (record.skills as string[]) : [],
     supportScope: Array.isArray(record.support_types) ? (record.support_types as string[]) : [],
+    updatedAt: String(record.updated_at ?? ""),
     avatarPath: (record.avatar_path as string | null) ?? null,
     contactMode: String(record.contact ?? ""),
     isOpen: Boolean(record.open_status ?? false),
@@ -455,13 +633,14 @@ function normalizeOpportunityLegacy(record: Record<string, unknown>) {
       isBeforeToday(String(record.deadline ?? ""))
         ? "已截止"
         : ((record.status as OpportunityDetail["status"]) ?? "开放申请"),
-    weeklyHours: String(record.weekly_hours ?? "每周 6-10 小时"),
+    weeklyHours: String(record.weekly_hours ?? "姣忓懆 6-10 灏忔椂"),
     applicantCount: Number(record.applicant_count ?? 0),
     creatorId: String(record.creator_id ?? ""),
-    creatorName: String(record.creator_name ?? "邻派用户"),
+    creatorName: String(record.creator_name ?? "閭绘淳鐢ㄦ埛"),
     creatorRole,
-    creatorRoleLabel: creatorRole === "mentor" ? "导师" : "学生队长",
+    creatorRoleLabel: creatorRole === "mentor" ? "瀵煎笀" : "瀛︾敓闃熼暱",
     creatorOrganization: String(record.creator_org_name ?? record.organization ?? ""),
+    projectName: String(record.project_name ?? ""),
     coverPath: (record.cover_path as string | null) ?? null,
     feishuUrl: (record.feishu_url as string | null) ?? null,
     createdAt: String(record.created_at ?? ""),
@@ -472,11 +651,11 @@ function normalizeOpportunityLegacy(record: Record<string, unknown>) {
       supplementaryItems.length > 0
         ? supplementaryItems
         : [
-            record.project_name ? `项目 / 比赛名称：${String(record.project_name)}` : "",
-            record.research_direction ? `研究 / 指导方向：${String(record.research_direction)}` : "",
-            record.target_audience ? `面向对象：${String(record.target_audience)}` : "",
-            record.support_method ? `支持方式：${String(record.support_method)}` : "",
-            record.contact_info ? `联系说明：${String(record.contact_info)}` : "",
+            record.project_name ? `椤圭洰 / 姣旇禌鍚嶇О锛?{String(record.project_name)}` : "",
+            record.research_direction ? `鐮旂┒ / 鎸囧鏂瑰悜锛?{String(record.research_direction)}` : "",
+            record.target_audience ? `闈㈠悜瀵硅薄锛?{String(record.target_audience)}` : "",
+            record.support_method ? `鏀寔鏂瑰紡锛?{String(record.support_method)}` : "",
+            record.contact_info ? `鑱旂郴璇存槑锛?{String(record.contact_info)}` : "",
           ].filter(Boolean),
   };
 }
@@ -520,10 +699,11 @@ function normalizeOpportunity(record: Record<string, unknown>) {
     weeklyHours: String(record.weekly_hours ?? "待沟通"),
     applicantCount: Number(record.applicant_count ?? 0),
     creatorId: String(record.creator_id ?? ""),
-    creatorName: String(record.creator_name ?? "邻派用户"),
+    creatorName: String(record.creator_name ?? "閭绘淳鐢ㄦ埛"),
     creatorRole,
-    creatorRoleLabel: creatorRole === "mentor" ? "导师" : "学生队长",
+    creatorRoleLabel: creatorRole === "mentor" ? "瀵煎笀" : "瀛︾敓闃熼暱",
     creatorOrganization: String(record.creator_org_name ?? record.organization ?? ""),
+    projectName: String(record.project_name ?? ""),
     coverPath: (record.cover_path as string | null) ?? null,
     feishuUrl: (record.feishu_url as string | null) ?? null,
     createdAt: String(record.created_at ?? ""),
@@ -537,11 +717,11 @@ function normalizeOpportunity(record: Record<string, unknown>) {
       supplementaryItems.length > 0
         ? supplementaryItems
         : [
-            record.project_name ? `项目 / 比赛名称：${String(record.project_name)}` : "",
-            record.research_direction ? `研究 / 指导方向：${String(record.research_direction)}` : "",
-            record.target_audience ? `面向对象：${String(record.target_audience)}` : "",
-            record.support_method ? `支持方式：${String(record.support_method)}` : "",
-            record.contact_info ? `联系方式：${String(record.contact_info)}` : "",
+            record.project_name ? `椤圭洰 / 姣旇禌鍚嶇О锛?{String(record.project_name)}` : "",
+            record.research_direction ? `鐮旂┒ / 鎸囧鏂瑰悜锛?{String(record.research_direction)}` : "",
+            record.target_audience ? `闈㈠悜瀵硅薄锛?{String(record.target_audience)}` : "",
+            record.support_method ? `鏀寔鏂瑰紡锛?{String(record.support_method)}` : "",
+            record.contact_info ? `鑱旂郴鏂瑰紡锛?{String(record.contact_info)}` : "",
           ].filter(Boolean),
   };
 }
@@ -615,6 +795,24 @@ async function loadApplicationsForOpportunities(
   }
 
   return result.data as ApplicationRecord[];
+}
+
+async function buildOpportunityApplicantCountMap(
+  supabase: Awaited<ReturnType<typeof getReadClient>> | ReturnType<typeof getPublicReadClient>,
+  opportunityIds: string[],
+) {
+  const applicationRows = await loadApplicationsForOpportunities(
+    supabase as Awaited<ReturnType<typeof getReadClient>>,
+    opportunityIds,
+  );
+  const applicantCountMap = new Map<string, number>();
+
+  applicationRows.forEach((item) => {
+    const opportunityId = String(item.opportunity_id ?? "");
+    applicantCountMap.set(opportunityId, (applicantCountMap.get(opportunityId) ?? 0) + 1);
+  });
+
+  return applicantCountMap;
 }
 
 function filterOpportunities(items: OpportunityDetail[], filters: ListFilters) {
@@ -707,7 +905,18 @@ const getCachedOpportunities = unstable_cache(
       throw error ?? new Error("Failed to load opportunities");
     }
 
-    return data.map((item) => normalizeOpportunity(item as Record<string, unknown>));
+    const applicantCountMap = await buildOpportunityApplicantCountMap(
+      supabase,
+      data.map((item) => String(item.id ?? "")),
+    );
+
+    return data.map((item) =>
+      normalizeOpportunity({
+        ...(item as Record<string, unknown>),
+        applicant_count:
+          applicantCountMap.get(String(item.id ?? "")) ?? Number(item.applicant_count ?? 0),
+      }),
+    );
   },
   ["public-opportunities"],
   { revalidate: 30, tags: ["opportunities"] },
@@ -865,6 +1074,22 @@ export async function listOpportunities(filters: ListFilters = {}, options: List
   }
 }
 
+export async function listPaginatedOpportunities(
+  filters: ListFilters = {},
+  options: { page?: number; pageSize?: number } = {},
+) {
+  const pageSize = Math.max(1, options.pageSize ?? 5);
+  const page = Math.max(1, options.page ?? 1);
+  const visibleLimit = page * pageSize;
+  const fetchLimit = visibleLimit + 1;
+  const items = await listOpportunities(filters, { limit: fetchLimit });
+
+  return {
+    items: items.slice(0, visibleLimit),
+    hasMore: items.length > visibleLimit,
+  };
+}
+
 export async function getOpportunityById(id: string) {
   if (!hasSupabaseEnv()) {
     return mockOpportunities.find((item) => item.id === id) ?? null;
@@ -895,16 +1120,16 @@ export async function listTalents(filters: ListFilters = {}, options: ListOption
   const limit = options.limit ?? DEFAULT_TALENT_LIMIT;
 
   if (!hasSupabaseEnv()) {
-    return filterTalents(mockTalents, normalizedFilters).slice(0, limit);
+    return sortStudentsByCompleteness(filterTalents(mockTalents, normalizedFilters)).slice(0, limit);
   }
 
   try {
-    return await getCachedTalents(
+    return sortStudentsByCompleteness(await getCachedTalents(
       normalizedFilters.query,
       normalizedFilters.school,
       normalizedFilters.skill,
       limit,
-    );
+    )).slice(0, limit);
   } catch {
     try {
       const supabase = getPublicReadClient();
@@ -921,7 +1146,7 @@ export async function listTalents(filters: ListFilters = {}, options: ListOption
       }
 
       const normalized = stripDemoTalents(data.map((item) => normalizeLegacyTalent(item as ProfileRecord)));
-      return filterTalents(normalized, normalizedFilters).slice(0, limit);
+      return sortStudentsByCompleteness(filterTalents(normalized, normalizedFilters)).slice(0, limit);
     } catch {
       return [];
     }
@@ -981,16 +1206,16 @@ export async function listMentors(filters: ListFilters = {}, options: ListOption
   const limit = options.limit ?? DEFAULT_MENTOR_LIMIT;
 
   if (!hasSupabaseEnv()) {
-    return filterMentors(mockMentors, normalizedFilters).slice(0, limit);
+    return sortMentorsByCompleteness(filterMentors(mockMentors, normalizedFilters)).slice(0, limit);
   }
 
   try {
-    return await getCachedMentors(
+    return sortMentorsByCompleteness(await getCachedMentors(
       normalizedFilters.query,
       normalizedFilters.school,
       normalizedFilters.skill,
       limit,
-    );
+    )).slice(0, limit);
   } catch {
     return [];
   }
@@ -1152,9 +1377,8 @@ export async function getPersonalShowcase(
       ctaLabel: "编辑学生资料",
       editPath: "/profile/student",
       sections: [
-        { label: "想加入的方向", value: profile.interestedDirections.join("、") || "暂未填写" },
+        { label: "想加入的方向", value: profile.interestedDirections.join(" / ") || "暂未填写" },
         { label: "比赛 / 项目经历", value: profile.experience || "暂未填写" },
-        { label: "可投入时间", value: profile.timeCommitment || "暂未填写" },
         { label: "作品链接", value: profile.portfolioExternalUrl || "暂未填写" },
         { label: "联系方式", value: profile.contact || "暂未填写" },
       ],
@@ -1177,7 +1401,7 @@ export async function getPersonalShowcase(
     editPath: "/profile/mentor",
     sections: [
       { label: "学校 / 学院 / 实验室", value: mentor.organization || "暂未填写" },
-      { label: "可支持内容", value: mentor.supportScope.join("、") || "暂未填写" },
+      { label: "可支持内容", value: mentor.supportScope.join(" / ") || "暂未填写" },
       { label: "支持方式", value: mentor.supportMethod || "暂未填写" },
       { label: "申请说明", value: mentor.applicationNotes || "暂未填写" },
       { label: "联系方式", value: mentor.contactMode || "暂未填写" },
@@ -1400,7 +1624,8 @@ export async function getManagedOpportunityForEdit(opportunityId: string, userId
       title: normalized.title,
       type: normalized.type,
       projectName:
-        String((data as Record<string, unknown>).project_name ?? "") || normalized.progress.replace(/^项目 \/ 比赛名称：/, ""),
+        String((data as Record<string, unknown>).project_name ?? "") ||
+        normalized.progress.replace(/^项目 \/ 比赛名称：/, ""),
       summary: normalized.summary,
       contactInfo:
         String((data as Record<string, unknown>).contact_info ?? "") ||

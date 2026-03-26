@@ -44,6 +44,7 @@ export type OpportunityCard = {
   creatorRole: AccountRole;
   creatorRoleLabel: string;
   creatorOrganization: string;
+  projectName: string;
   coverPath?: string | null;
   feishuUrl?: string | null;
   createdAt?: string;

@@ -169,7 +169,7 @@ export function AdminCaseForm() {
       <button
         type="submit"
         disabled={isPending}
-        className="rounded-full bg-[var(--accent)] px-5 py-3 font-semibold text-white transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-70"
+        className="rounded-full bg-accent px-5 py-3 font-semibold text-white transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-70"
       >
         {isPending ? "保存中..." : "录入案例"}
       </button>

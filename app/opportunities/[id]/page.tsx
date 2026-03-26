@@ -147,7 +147,7 @@ export default async function OpportunityDetailPage({ params }: OpportunityDetai
             ) : (
               <Link
                 href={`/login?next=${encodeURIComponent(applyNext)}`}
-                className="mt-5 inline-flex w-full items-center justify-center rounded-full bg-[var(--accent)] px-5 py-3 font-semibold text-white transition hover:opacity-95"
+              className="mt-5 inline-flex w-full items-center justify-center rounded-full bg-accent px-5 py-3 font-semibold text-white transition hover:opacity-95"
               >
                 登录后立即报名
               </Link>

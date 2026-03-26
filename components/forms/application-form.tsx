@@ -269,7 +269,7 @@ export function ApplicationForm({
       <button
         type="submit"
         disabled={isPending}
-        className="w-full rounded-full bg-[var(--accent)] px-5 py-3 font-semibold text-white transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-70"
+          className="w-full rounded-full bg-accent px-5 py-3 font-semibold text-white transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-70"
       >
         {isPending ? "提交中..." : currentSubmitLabel}
       </button>

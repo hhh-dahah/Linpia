@@ -233,6 +233,10 @@ select {
   background: var(--surface-muted);
 }
 
+.bg-accent {
+  background: var(--accent);
+}
+
 .hover-border-brand-soft:hover {
   border-color: rgba(51, 112, 255, 0.22);
 }

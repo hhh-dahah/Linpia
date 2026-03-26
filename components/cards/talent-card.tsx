@@ -38,10 +38,6 @@ export function TalentCard({ item }: { item: TalentCardType }) {
         )}
       </div>
 
-      <div className="mt-5 text-sm text-muted">
-        可投入时间：<span className="font-medium text-foreground">{item.timeCommitment || "待沟通"}</span>
-      </div>
-
       <div className="mt-6 flex items-center justify-between gap-4">
         <span className="text-sm font-medium text-foreground">
           感兴趣方向：{item.interestedDirections.join(" / ") || "待补充"}

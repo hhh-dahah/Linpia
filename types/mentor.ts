@@ -5,6 +5,7 @@ export type MentorCard = {
   direction: string;
   directionTags: string[];
   supportScope: string[];
+  updatedAt?: string;
   avatarPath?: string | null;
   contactMode: string;
   isOpen: boolean;

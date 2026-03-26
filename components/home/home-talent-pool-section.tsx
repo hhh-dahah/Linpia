@@ -76,7 +76,7 @@ export function HomeTalentPoolSection({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           <span className="chip">
-            <span className="h-2 w-2 rounded-full bg-[var(--accent)]" />
+            <span className="h-2 w-2 rounded-full bg-accent" />
             人才池
           </span>
           {previewCount ? (
