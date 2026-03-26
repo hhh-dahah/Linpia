@@ -32,7 +32,7 @@ export default async function StudentProfilePage({ searchParams }: StudentProfil
     <FormShell
       eyebrow="学生资料"
       title="把你的基础信息和想加入的方向挂出来"
-      description="不用等到非常完整再来填。先把学校、方向、经历和联系方式写清楚，别人就更容易判断怎么和你合作。"
+      description="先把学校、方向、经历和联系方式写清楚，别人更容易判断怎么和你合作。把介绍、技能、方向和联系方式补全后，更容易被排到前面。"
       asideTitle="这一页会影响什么"
       asideDescription="学生资料保存后，你的个人主页和首页人才池都会同步更新，别人也能更快看懂你会什么、想做什么。"
       tips={[

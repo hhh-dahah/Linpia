@@ -32,7 +32,7 @@ export default async function MentorProfilePage({ searchParams }: MentorProfileP
     <FormShell
       eyebrow="导师资料"
       title="把你的研究方向和支持方式整理清楚"
-      description="导师入驻不只是展示姓名，而是把你愿意开放的支持方式、研究方向和申请方式说明白，方便学生快速判断是否适合联系你。"
+      description="导师入驻不只是展示姓名，而是把你愿意开放的支持方式、研究方向和申请方式说明白，方便学生快速判断是否适合联系你。把方向、支持内容、联系方式和申请说明补全后，更容易被排到前面。"
       asideTitle="这一页会影响什么"
       asideDescription="导师资料保存后，你的个人主页和首页人才池都会同步更新，也能继续通过统一入口发布带队或合作招募。"
       tips={[
