@@ -33,10 +33,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     return (
       <div className="surface-card rounded-[2rem] px-6 py-8 text-center sm:px-8">
         <h1 className="font-display text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
-          登录后才能管理你的报名和招募
+          登录后才能管理你的报名、招募和消息
         </h1>
         <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-[var(--muted)] sm:text-base">
-          你可以先浏览平台内容，登录后再回到这里查看自己的报名记录、已发布招募和资料入口。
+          你可以先浏览平台内容，登录后再回到这里查看自己的资料、报名记录、已发布招募和站内通知。
         </p>
         <div className="mt-8">
           <Link href="/login?next=/dashboard" className="ui-button-primary px-5 py-3 font-semibold">
@@ -56,15 +56,17 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   return (
     <FormShell
-      eyebrow="我的发布管理"
+      eyebrow="我的 / 后台"
       title={`欢迎回来，${displayName}`}
-      description="这里统一管理你的资料、报名记录和已发布招募。点击对应卡片后，可以继续查看、修改或处理详情。"
-      asideTitle="这里现在能做什么"
-      asideDescription="报名和招募都已经变成真正可操作的入口，不再只是摘要展示。"
+      description="这里统一管理你的资料、报名、招募、通知和轻消息，不再把核心协作流程拆散在不同页面里。"
+      asideTitle="当前重点"
+      asideDescription="3000 用户前，我们优先保证撮合闭环稳定：资料展示清楚、机会筛选明确、报名状态透明、通知和会话只服务于合作推进。"
       tips={[
-        role === "mentor" ? "建议先把导师资料补完整，方便招募方和报名者判断是否适合合作。" : "建议先把个人资料和联系方式补完整，方便发起方尽快联系你。",
-        "我的报名里可以查看和修改自己已经提交的内容，取消报名也放到了详情页里。",
-        "我的招募里可以查看报名详情、编辑招募内容，删除招募前也会有二次确认。",
+        role === "mentor"
+          ? "优先补齐导师资料，别人更容易判断你是否适合提供支持。"
+          : "优先补齐学生资料和作品链接，能明显提高被看见和被联系的概率。",
+        "所有与报名直接相关的通知和消息，都会收口到这里。",
+        "后台入口仍保留，但不会挤占前台主流程。",
       ]}
     >
       <div className="space-y-8">
@@ -73,7 +75,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-2xl font-bold text-[var(--foreground)]">快捷入口</h2>
-            <p className="mt-1 text-sm text-[var(--muted)]">继续完善资料、发布招募，或者查看你当前的申请与招募管理。</p>
+            <p className="mt-1 text-sm text-[var(--muted)]">
+              继续完善资料、发布招募，或查看你当前的报名、通知和会话。
+            </p>
           </div>
           <div className="flex flex-wrap gap-3">
             <Link href="/profile" className="ui-button-secondary px-4 py-2 text-sm font-semibold">
@@ -82,18 +86,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             <Link href="/publish" className="ui-button-primary px-4 py-2 text-sm font-semibold">
               发布招募
             </Link>
-            {role === "mentor" ? (
-              <Link href="/profile/mentor" className="ui-button-secondary px-4 py-2 text-sm font-semibold">
-                编辑导师资料
-              </Link>
-            ) : (
-              <Link href="/profile/student" className="ui-button-secondary px-4 py-2 text-sm font-semibold">
-                编辑学生资料
-              </Link>
-            )}
+            <Link href="/dashboard/inbox" className="ui-button-secondary px-4 py-2 text-sm font-semibold">
+              查看通知与消息
+            </Link>
             {adminUser ? (
               <Link href="/admin" className="ui-button-secondary px-4 py-2 text-sm font-semibold">
-                进入后台录入
+                进入后台
               </Link>
             ) : null}
           </div>
@@ -103,9 +101,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           <section className="surface-panel rounded-[1.6rem] p-5">
             <div className="flex items-center justify-between gap-3">
               <h3 className="text-lg font-bold text-[var(--foreground)]">我的报名</h3>
-              {snapshot.applications.length ? (
-                <span className="text-xs font-medium text-[var(--muted)]">点击卡片可查看和修改</span>
-              ) : null}
+              <span className="text-xs font-medium text-[var(--muted)]">结构化报名与状态跟踪</span>
             </div>
             <div className="mt-4 space-y-3">
               {snapshot.applications.length ? (
@@ -116,7 +112,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                     className="block rounded-2xl border border-line bg-surface-muted px-4 py-4 transition hover:border-[rgba(51,102,255,0.28)] hover:shadow-[0_10px_30px_rgba(37,99,235,0.08)]"
                   >
                     <p className="font-semibold text-[var(--foreground)]">{item.opportunityTitle}</p>
-                    <p className="mt-2 text-sm text-[var(--muted)]">提交于 {formatDate(item.submittedAt)}</p>
+                    <p className="mt-2 text-sm text-[var(--muted)]">
+                      提交于 {formatDate(item.submittedAt)} · 当前状态：{item.status}
+                    </p>
                   </Link>
                 ))
               ) : (
@@ -128,9 +126,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           <section className="surface-panel rounded-[1.6rem] p-5">
             <div className="flex items-center justify-between gap-3">
               <h3 className="text-lg font-bold text-[var(--foreground)]">我的招募</h3>
-              {snapshot.opportunities.length ? (
-                <span className="text-xs font-medium text-[var(--muted)]">点击卡片可查看报名和编辑招募</span>
-              ) : null}
+              <span className="text-xs font-medium text-[var(--muted)]">管理公开详情与申请处理</span>
             </div>
             <div className="mt-4 space-y-3">
               {snapshot.opportunities.length ? (
@@ -147,7 +143,76 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                   </Link>
                 ))
               ) : (
-                <p className="text-sm text-[var(--muted)]">你还没有发布招募，可以先去创建一条。</p>
+                <p className="text-sm text-[var(--muted)]">你还没有发布招募，可以先创建一条。</p>
+              )}
+            </div>
+          </section>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <section className="surface-panel rounded-[1.6rem] p-5">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-lg font-bold text-[var(--foreground)]">最近通知</h3>
+              <Link href="/dashboard/inbox" className="ui-link text-sm font-semibold">
+                打开通知中心
+              </Link>
+            </div>
+            <div className="mt-4 space-y-3">
+              {snapshot.notifications.length ? (
+                snapshot.notifications.map((item) => (
+                  <Link
+                    key={item.id}
+                    href={item.linkHref}
+                    className="block rounded-2xl border border-line bg-surface-muted px-4 py-4 transition hover:border-[rgba(51,102,255,0.28)]"
+                  >
+                    <div className="flex items-center justify-between gap-4">
+                      <p className="font-semibold text-[var(--foreground)]">{item.title}</p>
+                      {!item.isRead ? (
+                        <span className="rounded-full bg-[rgba(36,107,250,0.12)] px-2 py-1 text-xs font-semibold text-[var(--primary)]">
+                          新
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{item.body}</p>
+                  </Link>
+                ))
+              ) : (
+                <p className="text-sm text-[var(--muted)]">暂时还没有新的通知。</p>
+              )}
+            </div>
+          </section>
+
+          <section className="surface-panel rounded-[1.6rem] p-5">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-lg font-bold text-[var(--foreground)]">最近会话</h3>
+              <Link href="/dashboard/inbox" className="ui-link text-sm font-semibold">
+                查看全部会话
+              </Link>
+            </div>
+            <div className="mt-4 space-y-3">
+              {snapshot.conversations.length ? (
+                snapshot.conversations.map((item) => (
+                  <Link
+                    key={item.id}
+                    href={`/dashboard/conversations/${item.id}`}
+                    className="block rounded-2xl border border-line bg-surface-muted px-4 py-4 transition hover:border-[rgba(51,102,255,0.28)]"
+                  >
+                    <div className="flex items-center justify-between gap-4">
+                      <p className="font-semibold text-[var(--foreground)]">{item.counterpartName}</p>
+                      {item.unreadCount > 0 ? (
+                        <span className="rounded-full bg-[rgba(255,159,74,0.12)] px-2 py-1 text-xs font-semibold text-[#c26e25]">
+                          {item.unreadCount} 条未读
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="mt-2 text-sm text-[var(--muted)]">{item.opportunityTitle}</p>
+                    <p className="mt-2 line-clamp-2 text-sm leading-6 text-[var(--foreground)]">
+                      {item.lastMessagePreview || "还没有发送消息，状态同步会先出现在这里。"}
+                    </p>
+                  </Link>
+                ))
+              ) : (
+                <p className="text-sm text-[var(--muted)]">暂时还没有会话记录。</p>
               )}
             </div>
           </section>

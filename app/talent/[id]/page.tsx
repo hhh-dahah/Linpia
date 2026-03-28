@@ -48,32 +48,53 @@ export default async function TalentDetailPage({ params }: TalentDetailPageProps
           <div className="surface-card rounded-[2rem] p-6">
             <h2 className="text-xl font-bold text-[var(--foreground)]">作品与证明</h2>
             <ul className="mt-4 space-y-3 text-sm text-[var(--muted)]">
-              {talent.achievements.map((item) => (
-                <li key={item} className="rounded-2xl bg-[rgba(17,40,79,0.04)] px-4 py-3">
-                  {item}
-                </li>
-              ))}
+              {talent.achievements.length ? (
+                talent.achievements.map((item) => (
+                  <li key={item} className="rounded-2xl bg-[rgba(17,40,79,0.04)] px-4 py-3">
+                    {item}
+                  </li>
+                ))
+              ) : (
+                <li className="rounded-2xl bg-[rgba(17,40,79,0.04)] px-4 py-3">暂未补充项目或获奖经历</li>
+              )}
             </ul>
             {talent.portfolioExternalUrl ? (
               <div className="mt-5">
-                <Link href={talent.portfolioExternalUrl} target="_blank" rel="noreferrer" className="inline-flex rounded-full bg-[var(--primary)] px-5 py-3 font-semibold text-white transition hover:bg-[var(--primary-strong)]">
-                  查看外链证明
+                <Link
+                  href={talent.portfolioExternalUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex rounded-full bg-[var(--primary)] px-5 py-3 font-semibold text-white transition hover:bg-[var(--primary-strong)]"
+                >
+                  查看外链作品
                 </Link>
               </div>
             ) : null}
           </div>
         </div>
 
-        <aside className="surface-panel rounded-[2rem] p-6">
-          <h2 className="text-xl font-bold text-[var(--foreground)]">协作建议</h2>
-          <p className="mt-4 text-sm leading-8 text-[var(--muted)]">{talent.contactHint}</p>
-          <p className="mt-4 text-sm leading-8 text-[var(--muted)]">
-            首版不做站内聊天，建议项目方查看完整机会详情后，再通过报名与试合作流程建立联系。
-          </p>
-          <div className="mt-6">
-            <Link href="/opportunities" className="inline-flex rounded-full border border-[rgba(17,40,79,0.12)] px-5 py-3 font-semibold text-[var(--foreground)] transition hover:border-[rgba(36,107,250,0.28)] hover:text-[var(--primary)]">
-              去匹配相关机会
-            </Link>
+        <aside className="space-y-6">
+          <div className="surface-panel rounded-[2rem] p-6">
+            <h2 className="text-xl font-bold text-[var(--foreground)]">可信度信息块</h2>
+            <div className="mt-4 space-y-3 text-sm leading-7 text-[var(--muted)]">
+              <p>资料完整度：{talent.trustInfo?.completenessPercent ?? 0}%</p>
+              <p>{talent.trustInfo?.completenessLabel ?? "资料待补充"}</p>
+              <p>{talent.trustInfo?.updatedText ?? "最近更新：待补充"}</p>
+              <p>联系状态：{talent.trustInfo?.contactText ?? "仅资料展示"}</p>
+            </div>
+          </div>
+
+          <div className="surface-panel rounded-[2rem] p-6">
+            <h2 className="text-xl font-bold text-[var(--foreground)]">协作建议</h2>
+            <p className="mt-4 text-sm leading-8 text-[var(--muted)]">{talent.contactHint}</p>
+            <p className="mt-4 text-sm leading-8 text-[var(--muted)]">
+              建议先确认对方的方向、时间投入和作品信息，再通过对应招募建立正式联系。
+            </p>
+            <div className="mt-6">
+              <Link href="/opportunities" className="inline-flex rounded-full border border-[rgba(17,40,79,0.12)] px-5 py-3 font-semibold text-[var(--foreground)] transition hover:border-[rgba(36,107,250,0.28)] hover:text-[var(--primary)]">
+                去匹配相关机会
+              </Link>
+            </div>
           </div>
         </aside>
       </section>

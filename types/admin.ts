@@ -1,15 +1,18 @@
 import type { AccountRole } from "@/types/account";
 import { applicationStatuses, type ApplicationStatus } from "@/types/application";
+import {
+  directoryPersonSources,
+  type DirectoryPerson,
+  type DirectoryPersonSource,
+  visibilityStatuses,
+  type VisibilityStatus,
+} from "@/types/directory";
 import type { OpportunityStatus, OpportunityType } from "@/types/opportunity";
 
 export const adminRoles = ["super_admin", "operator"] as const;
 export type AdminRole = (typeof adminRoles)[number];
-
-export const directoryPersonSources = ["registered", "managed"] as const;
-export type DirectoryPersonSource = (typeof directoryPersonSources)[number];
-
-export const visibilityStatuses = ["active", "hidden", "archived"] as const;
-export type VisibilityStatus = (typeof visibilityStatuses)[number];
+export { directoryPersonSources, visibilityStatuses };
+export type { DirectoryPerson, DirectoryPersonSource, VisibilityStatus };
 
 export const adminApplicationStatuses = applicationStatuses;
 export type AdminApplicationStatus = ApplicationStatus;
@@ -22,33 +25,6 @@ export type AdminUser = {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
-};
-
-export type DirectoryPerson = {
-  id: string;
-  authUserId?: string | null;
-  source: DirectoryPersonSource;
-  role: AccountRole;
-  name: string;
-  school: string;
-  major: string;
-  grade: string;
-  college: string;
-  lab: string;
-  bio: string;
-  skills: string[];
-  interestedDirections: string[];
-  researchDirection: string;
-  supportTypes: string[];
-  supportMethod: string;
-  openStatus: boolean;
-  contact: string;
-  avatarPath?: string | null;
-  portfolioUrl?: string | null;
-  visibilityStatus: VisibilityStatus;
-  createdAt: string;
-  updatedAt: string;
-  archivedAt?: string | null;
 };
 
 export type AdminOpportunity = {

@@ -81,21 +81,30 @@ export default async function MentorDetailPage({ params }: MentorDetailPageProps
           </div>
         </div>
 
-        <aside className="surface-panel rounded-[2rem] p-6">
-          <h2 className="text-xl font-bold text-[var(--foreground)]">下一步建议</h2>
-          <p className="mt-4 text-sm leading-8 text-[var(--muted)]">
-            如果你对这位导师的方向感兴趣，可以先回到招募池看看是否有开放中的导师招募，也可以先完善自己的个人资料再去申请合作。
-          </p>
-          <div className="mt-6 flex flex-col gap-3">
-            <Link href="/opportunities" className="ui-button-primary px-5 py-3 text-center font-semibold">
-              去看开放招募
-            </Link>
-            <Link href="/profile" className="ui-button-secondary px-5 py-3 text-center font-semibold">
-              去完善个人资料
-            </Link>
-            <Link href="/#mentor-section" className="ui-button-secondary px-5 py-3 text-center font-semibold">
-              返回导师区
-            </Link>
+        <aside className="space-y-6">
+          <div className="surface-panel rounded-[2rem] p-6">
+            <h2 className="text-xl font-bold text-[var(--foreground)]">可信度信息块</h2>
+            <div className="mt-4 space-y-3 text-sm leading-7 text-[var(--muted)]">
+              <p>资料完整度：{mentor.trustInfo?.completenessPercent ?? 0}%</p>
+              <p>{mentor.trustInfo?.completenessLabel ?? "资料待补充"}</p>
+              <p>{mentor.trustInfo?.updatedText ?? "最近更新：待补充"}</p>
+              <p>联系状态：{mentor.trustInfo?.contactText ?? "仅资料展示"}</p>
+            </div>
+          </div>
+
+          <div className="surface-panel rounded-[2rem] p-6">
+            <h2 className="text-xl font-bold text-[var(--foreground)]">下一步建议</h2>
+            <p className="mt-4 text-sm leading-8 text-[var(--muted)]">
+              如果你对这位导师的方向感兴趣，可以先回到机会池看看是否有开放中的导师招募，也可以先补齐自己的资料再发起申请。
+            </p>
+            <div className="mt-6 flex flex-col gap-3">
+              <Link href="/opportunities" className="ui-button-primary px-5 py-3 text-center font-semibold">
+                去看开放招募
+              </Link>
+              <Link href="/profile" className="ui-button-secondary px-5 py-3 text-center font-semibold">
+                去完善个人资料
+              </Link>
+            </div>
           </div>
         </aside>
       </section>

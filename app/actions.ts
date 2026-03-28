@@ -6,18 +6,26 @@ import { z } from "zod";
 
 import {
   getCurrentAccountRole,
+  getDisplayIdentity,
   getCurrentUser,
   isAdminEmail,
 } from "@/lib/auth";
 import { canManageAdmins, getCurrentAdminUser } from "@/lib/admin";
 import { findAuthUserByEmail } from "@/lib/admin-data";
+import {
+  notifyApplicationCreated,
+  notifyApplicationStatusChanged,
+  notifyConversationMessage,
+} from "@/lib/domains/inbox";
+import { isValidApplicationStatus } from "@/lib/domains/status";
+import { getConversationThreadDetailForUser, markNotificationRead } from "@/lib/repositories/inbox";
 import { hasServiceRoleEnv, hasSupabaseEnv } from "@/lib/env";
 import { uploadImage } from "@/lib/storage";
 import { createAdminSupabaseClient } from "@/supabase/admin";
 import { createServerSupabaseClient } from "@/supabase/server";
 import type { ActionResult, ActionState } from "@/types/action";
 import type { AdminApplicationStatus, AdminRole, VisibilityStatus } from "@/types/admin";
-import { applicationStatuses, type ApplicationStatus } from "@/types/application";
+import { applicationStatuses } from "@/types/application";
 import {
   applicationRequiredItemLabels,
   applicationRequiredItems as applicationRequiredItemValues,
@@ -54,6 +62,10 @@ async function getWriteClient() {
   }
 
   return createServerSupabaseClient();
+}
+
+function getFallbackDisplayName(email?: string | null) {
+  return email?.split("@")[0] || "邻派用户";
 }
 
 async function syncOpportunityApplicantCount(
@@ -865,7 +877,8 @@ export async function publishOpportunityAction(
       parsed.data.contactInfo ? `联系方式：${parsed.data.contactInfo}` : "",
     ].filter(Boolean);
 
-    const creatorName = user.email?.split("@")[0] || "邻派用户";
+    const displayIdentity = await getDisplayIdentity(user);
+    const creatorName = displayIdentity?.label || getFallbackDisplayName(user.email);
     const baseInsert = {
       id: opportunityId,
       type: parsed.data.type,
@@ -958,9 +971,12 @@ export async function applyOpportunityAction(
     }
 
     const client = await getWriteClient();
+    const applicantRole = await getCurrentAccountRole(user);
+    const displayIdentity = await getDisplayIdentity(user);
+    const applicantName = displayIdentity?.label || getFallbackDisplayName(user.email);
     const { data: opportunity } = await client
       .from("opportunities")
-      .select("title, application_required_items, application_requirement_note")
+      .select("id, title, creator_id, creator_role, creator_name, application_required_items, application_requirement_note")
       .eq("id", payload.opportunityId)
       .maybeSingle();
 
@@ -983,16 +999,20 @@ export async function applyOpportunityAction(
     const note = buildApplicationSummary(parsed.data, requiredItems);
     const proofUrl = getPrimaryProofUrl(parsed.data);
 
-    let result = await client.from("applications").upsert({
-      opportunity_id: parsed.data.opportunityId,
-      applicant_id: user.id,
-      note,
-      contact: parsed.data.contact,
-      proof_url: proofUrl,
-      submission_payload: submissionPayload,
-      status: "待查看",
-      opportunity_title: opportunity?.title ?? "未命名招募",
-    });
+    let result = await client
+      .from("applications")
+      .upsert({
+        opportunity_id: parsed.data.opportunityId,
+        applicant_id: user.id,
+        note,
+        contact: parsed.data.contact,
+        proof_url: proofUrl,
+        submission_payload: submissionPayload,
+        status: "待查看",
+        opportunity_title: opportunity?.title ?? "未命名招募",
+      })
+      .select("id")
+      .maybeSingle();
 
     if (result.error) {
       if (
@@ -1000,14 +1020,18 @@ export async function applyOpportunityAction(
           result.error.message,
         )
       ) {
-        result = await client.from("applications").upsert({
-          opportunity_id: parsed.data.opportunityId,
-          applicant_id: user.id,
-          note,
-          trial_task_url: proofUrl,
-          status: "待查看",
-          opportunity_title: opportunity?.title ?? "未命名招募",
-        });
+        result = await client
+          .from("applications")
+          .upsert({
+            opportunity_id: parsed.data.opportunityId,
+            applicant_id: user.id,
+            note,
+            trial_task_url: proofUrl,
+            status: "待查看",
+            opportunity_title: opportunity?.title ?? "未命名招募",
+          })
+          .select("id")
+          .maybeSingle();
       }
 
       if (result.error) {
@@ -1015,9 +1039,35 @@ export async function applyOpportunityAction(
       }
     }
 
+    const applicationId =
+      String(result.data?.id ?? "") ||
+      String(
+        (
+          await client
+            .from("applications")
+            .select("id")
+            .eq("opportunity_id", parsed.data.opportunityId)
+            .eq("applicant_id", user.id)
+            .maybeSingle()
+        ).data?.id ?? "",
+      );
+
     await syncOpportunityApplicantCount(client, parsed.data.opportunityId);
+    if (opportunity?.creator_id) {
+      await notifyApplicationCreated(client, {
+        applicationId,
+        opportunityId: parsed.data.opportunityId,
+        opportunityTitle: String(opportunity.title ?? "未命名招募"),
+        publisherId: String(opportunity.creator_id),
+        publisherRole: (opportunity.creator_role as "student" | "mentor" | null) ?? null,
+        applicantId: user.id,
+        applicantRole,
+        applicantName,
+      });
+    }
     revalidatePath("/");
     revalidatePath("/dashboard");
+    revalidatePath("/dashboard/conversations");
     revalidatePath("/opportunities");
     revalidatePath(`/opportunities/${parsed.data.opportunityId}`);
     revalidatePath(`/dashboard/opportunities/${parsed.data.opportunityId}`);
@@ -1731,16 +1781,16 @@ export async function updateOwnApplicationStatusAction(formData: FormData) {
 
     const applicationId = String(formData.get("applicationId") ?? "");
     const opportunityId = String(formData.get("opportunityId") ?? "");
-    const status = String(formData.get("status") ?? "") as ApplicationStatus;
+    const status = String(formData.get("status") ?? "");
 
-    if (!applicationStatuses.includes(status)) {
+    if (!isValidApplicationStatus(status)) {
       throw new Error("请选择有效的报名状态。");
     }
 
     const client = await getWriteClient();
     const { data: opportunity, error: opportunityError } = await client
       .from("opportunities")
-      .select("id, creator_id")
+      .select("id, title, creator_id, creator_role")
       .eq("id", opportunityId)
       .maybeSingle();
 
@@ -1752,18 +1802,34 @@ export async function updateOwnApplicationStatusAction(formData: FormData) {
       throw new Error("你没有权限处理这条报名。");
     }
 
-    const { error } = await client
+    const { data: application, error } = await client
       .from("applications")
       .update({ status })
+      .select("id, applicant_id, opportunity_title")
       .eq("id", applicationId)
-      .eq("opportunity_id", opportunityId);
+      .eq("opportunity_id", opportunityId)
+      .maybeSingle();
 
-    if (error) {
-      throw error;
+    if (error || !application) {
+      throw error ?? new Error("没有找到这条报名。");
     }
 
+    await notifyApplicationStatusChanged(client, {
+      applicationId,
+      opportunityId,
+      opportunityTitle: String(opportunity.title ?? application.opportunity_title ?? "未命名招募"),
+      publisherId: currentUser.id,
+      publisherRole: (opportunity.creator_role as "student" | "mentor" | null) ?? null,
+      applicantId: String(application.applicant_id ?? ""),
+      applicantRole: null,
+      status,
+    });
+
     revalidatePath("/dashboard");
+    revalidatePath("/dashboard/inbox");
     revalidatePath(`/dashboard/opportunities/${opportunityId}`);
+    revalidatePath(`/dashboard/applications/${applicationId}`);
+    revalidatePath(`/dashboard/conversations`);
     revalidatePath(`/opportunities/${opportunityId}`);
     revalidatePath("/admin/applications");
 
@@ -1772,6 +1838,73 @@ export async function updateOwnApplicationStatusAction(formData: FormData) {
     const opportunityId = String(formData.get("opportunityId") ?? "");
     const target = opportunityId ? `/dashboard/opportunities/${opportunityId}` : "/dashboard";
     redirect(`${target}?error=${encodeURIComponent(error instanceof Error ? error.message : "更新失败")}`);
+  }
+}
+
+export async function sendConversationMessageAction(formData: FormData): Promise<ActionResult> {
+  const threadId = String(formData.get("threadId") ?? "");
+  const body = String(formData.get("body") ?? "").trim();
+
+  try {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      throw new Error("请先登录后再发送消息。");
+    }
+
+    if (!threadId || !body) {
+      throw new Error("消息内容不能为空。");
+    }
+
+    const client = await getWriteClient();
+    const threadDetail = await getConversationThreadDetailForUser(client, threadId, currentUser.id);
+    if (!threadDetail) {
+      throw new Error("没有找到这条会话，或你没有访问权限。");
+    }
+
+    const displayIdentity = await getDisplayIdentity(currentUser);
+    await notifyConversationMessage(client, {
+      threadId,
+      senderId: currentUser.id,
+      recipientId: threadDetail.thread.counterpartId,
+      senderName: displayIdentity?.label || getFallbackDisplayName(currentUser.email),
+      opportunityTitle: threadDetail.thread.opportunityTitle,
+      body,
+    });
+
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/inbox");
+    revalidatePath(`/dashboard/conversations/${threadId}`);
+
+    return {
+      status: "success",
+      message: "消息已发送。",
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "发送失败",
+    };
+  }
+}
+
+export async function markNotificationReadAction(formData: FormData) {
+  const notificationId = String(formData.get("notificationId") ?? "");
+  const redirectTo = String(formData.get("redirectTo") ?? "/dashboard/inbox");
+
+  try {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      throw new Error("请先登录后再查看通知。");
+    }
+
+    const client = await getWriteClient();
+    await markNotificationRead(client, notificationId, currentUser.id);
+
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/inbox");
+    redirect(redirectTo);
+  } catch (error) {
+    redirect(`/dashboard/inbox?error=${encodeURIComponent(error instanceof Error ? error.message : "更新失败")}`);
   }
 }
 

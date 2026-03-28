@@ -1,4 +1,5 @@
 import type { AccountRole } from "@/types/account";
+import type { ProfileTrustInfo } from "@/types/directory";
 
 export type TalentCard = {
   id: string;
@@ -16,6 +17,7 @@ export type TalentCard = {
   portfolioCoverPath?: string | null;
   portfolioExternalUrl?: string | null;
   isDemo?: boolean;
+  trustInfo?: ProfileTrustInfo;
 };
 
 export type TalentDetail = TalentCard & {

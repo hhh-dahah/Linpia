@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 
 import type { MentorCard as MentorCardType } from "@/types/mentor";
 
@@ -46,6 +46,13 @@ export function MentorCard({ item, detailHref = `/mentors/${item.id}` }: MentorC
           </span>
         )}
       </div>
+
+      {item.trustInfo ? (
+        <div className="mt-5 grid gap-2 rounded-[1.2rem] bg-[rgba(17,40,79,0.04)] px-4 py-3 text-sm text-muted">
+          <p>{item.trustInfo.completenessLabel} · {item.trustInfo.completenessPercent}%</p>
+          <p>{item.trustInfo.updatedText}</p>
+        </div>
+      ) : null}
 
       <div className="mt-5 space-y-2 text-sm text-muted">
         <p>可支持内容：{item.supportScope.join(" / ") || "待补充"}</p>

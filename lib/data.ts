@@ -13,12 +13,21 @@ import type {
 } from "@/types/application";
 import type { AccountRole } from "@/types/account";
 import type { CaseCard } from "@/types/case";
+import type { ConversationThreadDetail } from "@/types/conversation";
 import type { MentorCard } from "@/types/mentor";
+import type { NotificationEvent } from "@/types/notification";
 import {
   applicationRequiredItems as applicationRequiredItemValues,
   type OpportunityDetail,
 } from "@/types/opportunity";
 import type { PersonalShowcase, TalentDetail } from "@/types/profile";
+import { buildMentorTrustInfo, buildTalentTrustInfo } from "@/lib/domains/directory";
+import {
+  getConversationThreadDetailForUser,
+  listConversationThreadsForUser,
+  listNotificationEventsForUser,
+  markNotificationRead,
+} from "@/lib/repositories/inbox";
 import { createPublicSupabaseClient } from "@/supabase/public";
 import { createServerSupabaseClient } from "@/supabase/server";
 import { skillOptions } from "@/constants";
@@ -29,8 +38,10 @@ import { isBeforeToday } from "./utils";
 type ListFilters = {
   query?: string;
   type?: string;
+  creatorRole?: string;
   school?: string;
   skill?: string;
+  status?: string;
 };
 
 type ListOptions = {
@@ -341,8 +352,10 @@ function serializeFilters(filters: ListFilters) {
   return {
     query: normalizeFilterValue(filters.query),
     type: normalizeFilterValue(filters.type),
+    creatorRole: normalizeFilterValue(filters.creatorRole),
     school: normalizeFilterValue(filters.school),
     skill: normalizeFilterValue(filters.skill),
+    status: normalizeFilterValue(filters.status),
   };
 }
 
@@ -374,7 +387,7 @@ function normalizeLegacyTalent(record: ProfileRecord): TalentDetail {
     ? (record.interested_directions as string[])
     : [];
 
-  return {
+  const detail: TalentDetail = {
     id: String(record.id),
     name: String(record.name ?? record.nickname ?? ""),
     nickname: String(record.nickname ?? ""),
@@ -398,6 +411,11 @@ function normalizeLegacyTalent(record: ProfileRecord): TalentDetail {
       demoStudentNames.has(String(record.name ?? "")) ||
       demoStudentNames.has(String(record.nickname ?? "")),
   };
+
+  return {
+    ...detail,
+    trustInfo: buildTalentTrustInfo(detail),
+  };
 }
 
 function normalizeStudentProfile(
@@ -417,7 +435,7 @@ function normalizeStudentProfile(
       ? (profile.interested_directions as string[])
       : [];
 
-  return {
+  const detail: TalentDetail = {
     id: String(profile.id),
     name: String(profile.nickname ?? profile.name ?? ""),
     nickname: String(profile.nickname ?? ""),
@@ -441,6 +459,11 @@ function normalizeStudentProfile(
       demoStudentNames.has(String(profile.name ?? "")) ||
       demoStudentNames.has(String(profile.nickname ?? "")),
   };
+
+  return {
+    ...detail,
+    trustInfo: buildTalentTrustInfo(detail),
+  };
 }
 
 function parseLegacyMentorContact(contactMode?: string | null) {
@@ -459,7 +482,7 @@ function parseLegacyMentorContact(contactMode?: string | null) {
 
 function normalizeLegacyMentor(record: LegacyMentorRecord): MentorCard {
   const bundle = parseLegacyMentorContact(String(record.contact_mode ?? ""));
-  return {
+  const detail: MentorCard = {
     id: String(record.user_id ?? record.id),
     name: String(record.name ?? ""),
     organization: String(record.organization ?? ""),
@@ -477,6 +500,11 @@ function normalizeLegacyMentor(record: LegacyMentorRecord): MentorCard {
     applicationNotes: bundle.applicationNotes || String(record.application_notes ?? ""),
     isDemo: Boolean(record.is_demo) || demoMentorNames.has(String(record.name ?? "")),
   };
+
+  return {
+    ...detail,
+    trustInfo: buildMentorTrustInfo(detail),
+  };
 }
 
 function normalizeMentorProfile(
@@ -489,7 +517,7 @@ function normalizeMentorProfile(
   const college = String(mentorProfile?.college ?? legacy?.college ?? "");
   const lab = String(mentorProfile?.lab ?? legacy?.lab ?? "");
 
-  return {
+  const detail: MentorCard = {
     id: String(profile.id),
     name: String(profile.nickname ?? legacy?.name ?? ""),
     organization: getMentorOrganization([school, college, lab], legacy?.organization),
@@ -512,12 +540,17 @@ function normalizeMentorProfile(
       demoMentorNames.has(String(profile.nickname ?? "")) ||
       demoMentorNames.has(String(legacy?.name ?? "")),
   };
+
+  return {
+    ...detail,
+    trustInfo: buildMentorTrustInfo(detail),
+  };
 }
 
 function normalizeDirectoryTalent(record: Record<string, unknown>): TalentDetail {
   const name = String(record.name ?? "");
   const { skills, customSkills } = splitTalentSkills(record.skills, record.custom_skills);
-  return {
+  const detail: TalentDetail = {
     id: String(record.id),
     name,
     nickname: name,
@@ -541,6 +574,11 @@ function normalizeDirectoryTalent(record: Record<string, unknown>): TalentDetail
     contactHint: String(record.contact ?? "登录后可进一步联系。"),
     isDemo: demoStudentNames.has(name),
   };
+
+  return {
+    ...detail,
+    trustInfo: buildTalentTrustInfo(detail),
+  };
 }
 
 function normalizeDirectoryMentor(record: Record<string, unknown>): MentorCard {
@@ -549,7 +587,7 @@ function normalizeDirectoryMentor(record: Record<string, unknown>): MentorCard {
   const college = String(record.college ?? "");
   const lab = String(record.lab ?? "");
 
-  return {
+  const detail: MentorCard = {
     id: String(record.id),
     name,
     organization: getMentorOrganization([school, college, lab]),
@@ -566,6 +604,11 @@ function normalizeDirectoryMentor(record: Record<string, unknown>): MentorCard {
     supportMethod: String(record.support_method ?? ""),
     applicationNotes: "",
     isDemo: demoMentorNames.has(name),
+  };
+
+  return {
+    ...detail,
+    trustInfo: buildMentorTrustInfo(detail),
   };
 }
 
@@ -638,7 +681,7 @@ function normalizeOpportunityLegacy(record: Record<string, unknown>) {
     creatorId: String(record.creator_id ?? ""),
     creatorName: String(record.creator_name ?? "閭绘淳鐢ㄦ埛"),
     creatorRole,
-    creatorRoleLabel: creatorRole === "mentor" ? "瀵煎笀" : "瀛︾敓闃熼暱",
+    creatorRoleLabel: creatorRole === "mentor" ? "导师" : "学生队长",
     creatorOrganization: String(record.creator_org_name ?? record.organization ?? ""),
     projectName: String(record.project_name ?? ""),
     coverPath: (record.cover_path as string | null) ?? null,
@@ -701,7 +744,7 @@ function normalizeOpportunity(record: Record<string, unknown>) {
     creatorId: String(record.creator_id ?? ""),
     creatorName: String(record.creator_name ?? "閭绘淳鐢ㄦ埛"),
     creatorRole,
-    creatorRoleLabel: creatorRole === "mentor" ? "瀵煎笀" : "瀛︾敓闃熼暱",
+    creatorRoleLabel: creatorRole === "mentor" ? "导师" : "学生队长",
     creatorOrganization: String(record.creator_org_name ?? record.organization ?? ""),
     projectName: String(record.project_name ?? ""),
     coverPath: (record.cover_path as string | null) ?? null,
@@ -818,14 +861,16 @@ async function buildOpportunityApplicantCountMap(
 function filterOpportunities(items: OpportunityDetail[], filters: ListFilters) {
   return items.filter((item) => {
     const typeMatch = filters.type ? item.type === filters.type : true;
+    const creatorRoleMatch = filters.creatorRole ? item.creatorRole === filters.creatorRole : true;
     const schoolMatch = filters.school ? item.organization.includes(filters.school) : true;
     const skillMatch = filters.skill ? item.tags.includes(filters.skill) : true;
+    const statusMatch = filters.status ? item.status === filters.status : true;
     const queryMatch = matchKeyword(
       [item.title, item.summary, item.creatorName, item.organization, item.tags.join(" ")],
       filters.query,
     );
 
-    return typeMatch && schoolMatch && skillMatch && queryMatch;
+    return typeMatch && creatorRoleMatch && schoolMatch && skillMatch && statusMatch && queryMatch;
   });
 }
 
@@ -866,7 +911,7 @@ function filterMentors(items: MentorCard[], filters: ListFilters) {
 }
 
 const getCachedOpportunities = unstable_cache(
-  async (query: string, type: string, school: string, skill: string, limit: number) => {
+  async (query: string, type: string, creatorRole: string, school: string, skill: string, status: string, limit: number) => {
     const supabase = getPublicReadClient();
     let request = supabase
       .from("opportunities")
@@ -877,6 +922,10 @@ const getCachedOpportunities = unstable_cache(
 
     if (type) {
       request = request.eq("type", type);
+    }
+
+    if (creatorRole === "student" || creatorRole === "mentor") {
+      request = request.eq("creator_role", creatorRole);
     }
 
     if (query) {
@@ -898,6 +947,10 @@ const getCachedOpportunities = unstable_cache(
       request = request.or(
         `preset_tags.cs.${arrayContains},custom_tags.cs.${arrayContains},skill_tags.cs.${arrayContains}`,
       );
+    }
+
+    if (status) {
+      request = request.eq("status", status);
     }
 
     const { data, error } = await request;
@@ -1064,8 +1117,10 @@ export async function listOpportunities(filters: ListFilters = {}, options: List
       await getCachedOpportunities(
       normalizedFilters.query,
       normalizedFilters.type,
+      normalizedFilters.creatorRole,
       normalizedFilters.school,
       normalizedFilters.skill,
+      normalizedFilters.status,
       limit,
       ),
     );
@@ -1415,12 +1470,14 @@ export async function getDashboardSnapshot(userId?: string | null, role?: Accoun
       profile: role === "mentor" ? mockMentors[0] : mockTalents[0],
       applications: mockDashboardApplications,
       opportunities: mockOpportunities.slice(0, 2),
+      conversations: [],
+      notifications: [],
     };
   }
 
   try {
     const supabase = await getReadClient();
-    const [applications, opportunities, profile] = await Promise.all([
+    const [applications, opportunities, profile, conversations, notifications] = await Promise.all([
       supabase
         .from("applications")
         .select("id, opportunity_id, status, created_at, opportunity_title")
@@ -1434,6 +1491,8 @@ export async function getDashboardSnapshot(userId?: string | null, role?: Accoun
         .order("created_at", { ascending: false })
         .limit(DASHBOARD_OPPORTUNITY_LIMIT),
       role === "mentor" ? getMentorProfileByUserId(userId) : getStudentProfileByUserId(userId),
+      listConversationThreadsForUser(supabase, userId, 6),
+      listNotificationEventsForUser(supabase, userId, 8),
     ]);
 
     const opportunityRows = (opportunities.data ?? []) as Array<Record<string, unknown>>;
@@ -1463,13 +1522,69 @@ export async function getDashboardSnapshot(userId?: string | null, role?: Accoun
             applicant_count: applicantCountMap.get(String(item.id)) ?? Number(item.applicant_count ?? 0),
           }),
         ) ?? [],
+      conversations,
+      notifications,
     };
   } catch {
     return {
       profile: role === "mentor" ? mockMentors[0] : mockTalents[0],
       applications: mockDashboardApplications,
       opportunities: mockOpportunities.slice(0, 2),
+      conversations: [],
+      notifications: [],
     };
+  }
+}
+
+export async function listConversationThreads(userId: string) {
+  if (!hasSupabaseEnv()) {
+    return [];
+  }
+
+  try {
+    const supabase = await getReadClient();
+    return await listConversationThreadsForUser(supabase, userId, 20);
+  } catch {
+    return [];
+  }
+}
+
+export async function getConversationThreadById(threadId: string, userId: string): Promise<ConversationThreadDetail | null> {
+  if (!hasSupabaseEnv()) {
+    return null;
+  }
+
+  try {
+    const supabase = await getReadClient();
+    return await getConversationThreadDetailForUser(supabase, threadId, userId);
+  } catch {
+    return null;
+  }
+}
+
+export async function listNotificationEvents(userId: string): Promise<NotificationEvent[]> {
+  if (!hasSupabaseEnv()) {
+    return [];
+  }
+
+  try {
+    const supabase = await getReadClient();
+    return await listNotificationEventsForUser(supabase, userId, 20);
+  } catch {
+    return [];
+  }
+}
+
+export async function markNotificationAsRead(notificationId: string, userId: string) {
+  if (!hasSupabaseEnv()) {
+    return;
+  }
+
+  try {
+    const supabase = await getReadClient();
+    await markNotificationRead(supabase, notificationId, userId);
+  } catch {
+    return;
   }
 }
 

@@ -1,3 +1,5 @@
+import type { ProfileTrustInfo } from "@/types/directory";
+
 export type MentorCard = {
   id: string;
   name: string;
@@ -15,4 +17,5 @@ export type MentorCard = {
   supportMethod?: string;
   applicationNotes?: string;
   isDemo?: boolean;
+  trustInfo?: ProfileTrustInfo;
 };
